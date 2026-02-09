@@ -165,7 +165,15 @@
                 </div>
 
                 <div class="flex justify-between items-center mb-4">
-                     <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">รายการที่ต้องตัดสิน</h2>
+                     <div class="flex items-center gap-3">
+                        <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">รายการที่ต้องตัดสิน</h2>
+                        <!-- Group Filter Dropdown -->
+                        <div id="groupFilterContainer" class="hidden">
+                            <select id="groupFilter" onchange="loadJudgingItems()" class="bg-white border border-blue-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
+                                <option value="All">ทั้งหมด</option>
+                            </select>
+                        </div>
+                     </div>
                     <button onclick="loadJudgingItems()" class="bg-white text-blue-900 border border-blue-200 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 shadow-sm"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
                 </div>
                 
@@ -372,7 +380,7 @@
         // ************************************************
         // CONFIGURATION - นำ URL จาก Apps Script มาใส่ตรงนี้
         // ************************************************
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyovfmd-2CZmcSRGbOCkg9YjCf45ZskHsJAKwytOmE5fC3SNlN4RmDtt7LjDTF_Drs0/exec'; 
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4-ppfPivJhOc5cg9eqXGoVFnCGf-4zncBm-RID_OHgEv0R0QkdsJpXr4Dhk032PF91g/exec'; 
         // ************************************************
 
         let currentUser = null;
@@ -413,7 +421,7 @@
 
         async function callBackend(data) {
             if (SCRIPT_URL === 'INSERT_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE' || SCRIPT_URL === '') {
-                alert('กรุณาใส่ Apps Script URL ในโค้ด HTML บรรทัดที่ 437 ก่อนใช้งาน');
+                alert('กรุณาใส่ Apps Script URL ในโค้ด HTML บรรทัดที่ 440 ก่อนใช้งาน');
                 return null;
             }
             showLoading(true);
@@ -502,6 +510,15 @@
             switchView('dashboardView');
             document.getElementById('welcomeName').innerText = `คุณ${currentUser.name}`;
             document.getElementById('welcomeGroup').innerText = currentUser.group;
+            
+            // Show/Hide filter based on role/group
+            if (currentUser.role === 'admin' || currentUser.group === 'All') {
+                document.getElementById('groupFilterContainer').classList.remove('hidden');
+                loadGroupOptions();
+            } else {
+                document.getElementById('groupFilterContainer').classList.add('hidden');
+            }
+
             if (currentUser.role === 'admin') {
                 document.getElementById('adminPanel').classList.remove('hidden');
                 document.getElementById('judgePanel').classList.remove('hidden');
@@ -512,6 +529,21 @@
             }
             loadStats();
             loadJudgingItems();
+        }
+
+        async function loadGroupOptions() {
+            const result = await callBackend({ action: 'getGroups' });
+            if (result && result.status === 'success' && result.data) {
+                const select = document.getElementById('groupFilter');
+                // Keep the first option (All) and clear others
+                select.innerHTML = '<option value="All">ทั้งหมด</option>';
+                result.data.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group;
+                    option.text = group;
+                    select.appendChild(option);
+                });
+            }
         }
 
         async function loadPendingUsers() {
@@ -554,7 +586,15 @@
         }
 
         async function loadJudgingItems() {
-            const result = await callBackend({ action: 'getItemsToJudge', group: currentUser.group });
+            // Determine group to fetch: filter value if available/allowed, else user's group
+            let groupToFetch = currentUser.group;
+            const filterVal = document.getElementById('groupFilter').value;
+            
+            if (currentUser.role === 'admin' || currentUser.group === 'All') {
+                groupToFetch = filterVal;
+            }
+
+            const result = await callBackend({ action: 'getItemsToJudge', group: groupToFetch });
             const tbody = document.getElementById('itemsTable');
             tbody.innerHTML = '';
             if (result && result.data) {
