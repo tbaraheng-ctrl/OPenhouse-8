@@ -229,7 +229,6 @@
                                     </select>
                                     <!-- Display Participants Here -->
                                     <div id="winner_students" class="mt-2 p-3 bg-white border border-yellow-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <span class="font-bold text-yellow-700 block mb-1">ผู้เข้าร่วม:</span> 
                                         <div class="content"></div>
                                     </div>
                                 </div>
@@ -261,7 +260,6 @@
                                         <option value="">เลือกโรงเรียน...</option>
                                     </select>
                                     <div id="runner1_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
                                         <div class="content"></div>
                                     </div>
                                 </div>
@@ -293,7 +291,6 @@
                                         <option value="">เลือกโรงเรียน...</option>
                                     </select>
                                     <div id="runner2_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
                                         <div class="content"></div>
                                     </div>
                                 </div>
@@ -325,7 +322,6 @@
                                         <option value="">เลือกโรงเรียน...</option>
                                     </select>
                                     <div id="honorable_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
                                         <div class="content"></div>
                                     </div>
                                 </div>
@@ -709,7 +705,19 @@
             const participant = currentParticipants.find(p => p.school === selectedSchool);
             if (participant) {
                 // Apply beautiful formatting
-                content.innerHTML = formatStudentNames(participant.students);
+                const studentHtml = formatStudentNames(participant.students);
+                const teacherHtml = formatStudentNames(participant.teacher);
+                
+                content.innerHTML = `
+                    <div class="mb-2">
+                        <span class="font-bold text-yellow-700 block text-xs uppercase tracking-wide mb-1">ผู้เข้าร่วม:</span>
+                        <div class="text-slate-700 leading-relaxed pl-2 border-l-2 border-yellow-200">${studentHtml}</div>
+                    </div>
+                    <div>
+                        <span class="font-bold text-blue-800 block text-xs uppercase tracking-wide mb-1">ครูผู้ฝึกสอน:</span>
+                        <div class="text-slate-700 leading-relaxed pl-2 border-l-2 border-blue-200">${teacherHtml}</div>
+                    </div>
+                `;
                 display.classList.remove('hidden');
             }
         }
@@ -765,6 +773,20 @@
                 return rawNames;
             };
 
+            // Helper to get teacher name (NEW)
+            const getTeacher = (id) => {
+                const school = document.getElementById(id).value;
+                if (!school) return "";
+                const part = currentParticipants.find(p => p.school === school);
+                if (!part) return "";
+                // Assuming "just one teacher" means we take the string as is, or split if comma separated and take first?
+                // The prompt said: "หากมีชื่อนักเรียนหลายคนให้บันทึกชื่อครูผู้ฝึกสอนแค่คนเดียว"
+                // This likely means record the teacher field associated with the group.
+                let rawTeacher = String(part.teacher);
+                rawTeacher = rawTeacher.replace(/ด\.ช\./g, 'เด็กชาย').replace(/ด\.ญ\./g, 'เด็กหญิง').replace(/น\.ส\./g, 'นางสาว').replace(/อ\./g, 'อาจารย์');
+                return rawTeacher; 
+            };
+
             const data = {
                 action: 'saveJudgment',
                 judgeName: currentUser.name,
@@ -772,21 +794,25 @@
                 
                 winnerSchool: getSchool('winner'),
                 winnerStudent: getStudent('winner'),
+                winnerTeacher: getTeacher('winner'),
                 winnerScore: document.getElementById('winnerScore').value,
                 winnerMedal: document.getElementById('winnerMedal').value,
                 
                 runner1School: getSchool('runner1'),
                 runner1Student: getStudent('runner1'),
+                runner1Teacher: getTeacher('runner1'),
                 runner1Score: document.getElementById('runner1Score').value,
                 runner1Medal: document.getElementById('runner1Medal').value,
                 
                 runner2School: getSchool('runner2'),
                 runner2Student: getStudent('runner2'),
+                runner2Teacher: getTeacher('runner2'),
                 runner2Score: document.getElementById('runner2Score').value,
                 runner2Medal: document.getElementById('runner2Medal').value,
                 
                 honorableSchool: getSchool('honorable'),
                 honorableStudent: getStudent('honorable'),
+                honorableTeacher: getTeacher('honorable'),
                 honorableScore: document.getElementById('honorableScore').value,
                 honorableMedal: document.getElementById('honorableMedal').value,
             };
