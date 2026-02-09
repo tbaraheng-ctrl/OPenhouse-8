@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบกรรมการตัดสินกิจกรรมการแข่งขัน - โรงเรียนนราสิกขาลัย</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        .school-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); }
+        .loading-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(15, 23, 42, 0.7); z-index: 50; display: none; 
+            justify-content: center; align-items: center; backdrop-filter: blur(4px);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800">
+
+    <!-- Loading Spinner -->
+    <div id="globalLoader" class="loading-overlay">
+        <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center border-t-4 border-yellow-500">
+            <i class="fas fa-circle-notch fa-spin text-5xl text-blue-900 mb-4"></i>
+            <p class="text-blue-900 font-medium">กำลังประมวลผล...</p>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300 max-w-xs w-full">
+        <div id="toastContent" class="bg-white border-l-4 p-4 rounded-lg shadow-xl flex items-center border">
+            <div id="toastIcon" class="mr-3 text-xl"></div>
+            <div id="toastMessage" class="font-medium text-sm"></div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW: LOGIN ================= -->
+    <div id="loginView" class="min-h-screen flex items-center justify-center p-4 school-gradient">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 border-t-8 border-yellow-500 relative overflow-hidden">
+             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-50 rounded-full opacity-50 z-0"></div>
+            <div class="text-center mb-8 relative z-10">
+                <img src="https://www.ns.ac.th/wp-content/uploads/2024/12/cropped-logo-sq.png" alt="Logo" class="w-28 h-28 mx-auto mb-4 object-contain drop-shadow-md">
+                <h2 class="text-2xl font-bold text-blue-900">โรงเรียนนราสิกขาลัย</h2>
+                <p class="text-slate-500 mt-1 text-sm">ระบบกรรมการตัดสินกิจกรรมการแข่งขัน</p>
+            </div>
+            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();" class="relative z-10">
+                <div class="mb-5">
+                    <label class="block text-slate-700 text-sm font-semibold mb-2">ชื่อผู้ใช้</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-900 bg-slate-50" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-slate-700 text-sm font-semibold mb-2">รหัสผ่าน</label>
+                    <div class="relative">
+                        <input type="password" id="password" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-900 bg-slate-50" required>
+                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400" onclick="togglePassword('password')">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-8">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="rememberMe" class="form-checkbox text-blue-900 rounded">
+                        <span class="ml-2 text-sm text-slate-600">จดจำฉัน</span>
+                    </label>
+                </div>
+                <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 text-blue-900 font-bold py-3.5 rounded-lg shadow-lg">เข้าสู่ระบบ</button>
+                <div class="mt-6 text-center pt-4">
+                    <button type="button" onclick="switchView('registerView')" class="text-slate-500 hover:text-blue-900 text-sm underline decoration-dotted">ลงทะเบียนกรรมการใหม่</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= VIEW: REGISTER ================= -->
+    <div id="registerView" class="hidden min-h-screen flex items-center justify-center p-4 bg-slate-100">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-8 border-t-4 border-blue-900">
+            <h2 class="text-2xl font-bold text-center text-blue-900 mb-6">ลงทะเบียนกรรมการ</h2>
+            <form id="registerForm" onsubmit="event.preventDefault(); handleRegister();">
+                <div class="grid grid-cols-1 gap-4">
+                    <input type="text" id="regName" placeholder="ชื่อ-นามสกุล" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
+                    <input type="text" id="regUser" placeholder="ชื่อผู้ใช้" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="password" id="regPass" placeholder="รหัสผ่าน" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
+                        <input type="password" id="regPassConfirm" placeholder="ยืนยันรหัสผ่าน" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
+                    </div>
+                    <select id="regGroup" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
+                        <option value="">เลือกกลุ่มสาระฯ</option>
+                        <option value="ภาษาไทย">ภาษาไทย</option>
+                        <option value="คณิตศาสตร์">คณิตศาสตร์</option>
+                        <option value="วิทยาศาสตร์">วิทยาศาสตร์</option>
+                        <option value="สังคมศึกษา">สังคมศึกษา</option>
+                        <option value="ภาษาต่างประเทศ">ภาษาต่างประเทศ</option>
+                        <option value="สุขศึกษา">สุขศึกษา</option>
+                        <option value="ศิลปะ">ศิลปะ</option>
+                        <option value="การงานอาชีพ">การงานอาชีพ</option>
+                    </select>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" onclick="switchView('loginView')" class="flex-1 py-3 border rounded-lg hover:bg-slate-50">ยกเลิก</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 shadow-md">ยืนยัน</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= VIEW: DASHBOARD ================= -->
+    <div id="dashboardView" class="hidden min-h-screen flex flex-col bg-slate-50">
+        <header class="bg-blue-900 text-white shadow-lg py-3 px-4 flex justify-between items-center sticky top-0 z-30">
+            <div class="flex items-center gap-3">
+                <div class="bg-white p-1 rounded-full shadow-sm">
+                    <img src="https://www.ns.ac.th/wp-content/uploads/2024/12/cropped-logo-sq.png" class="h-8 md:h-10">
+                </div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg leading-tight">ระบบตัดสินการแข่งขัน</h1>
+                    <div class="text-xs text-blue-200 flex flex-wrap gap-2 items-center mt-0.5">
+                        <span id="welcomeName"></span>
+                        <span id="welcomeGroup" class="bg-yellow-500 text-blue-900 px-2 py-0.5 rounded text-[10px] font-bold"></span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="handleLogout()" class="text-white bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition"><i class="fas fa-sign-out-alt"></i></button>
+        </header>
+
+        <main class="flex-1 p-4 md:p-6 overflow-y-auto max-w-7xl mx-auto w-full">
+            <!-- Admin Panel -->
+            <div id="adminPanel" class="hidden space-y-6 mb-8">
+                <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">อนุมัติผู้ใช้งาน</h2>
+                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-blue-900 text-white">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">ชื่อ-สกุล</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Username</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">กลุ่มสาระ</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approvalTable" class="bg-white divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Judge Panel -->
+            <div id="judgePanel" class="hidden space-y-6">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-blue-900">
+                        <p class="text-slate-500 text-sm font-medium">กิจกรรมทั้งหมด</p>
+                        <h3 id="statTotal" class="text-4xl font-bold text-blue-900">0</h3>
+                    </div>
+                    <div class="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl p-5 shadow-md text-blue-900">
+                        <p class="text-blue-900/80 text-sm font-bold">ตัดสินแล้ว</p>
+                        <h3 id="statJudged" class="text-4xl font-bold text-blue-900">0</h3>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">รายการที่ต้องตัดสิน</h2>
+                    <button onclick="loadJudgingItems()" class="bg-white text-blue-900 border border-blue-200 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 shadow-sm"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-blue-900 text-white">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-medium uppercase">ชื่อกิจกรรม</th>
+                                    <th class="px-6 py-4 text-left text-xs font-medium uppercase w-48">กลุ่มสาระ</th>
+                                    <th class="px-6 py-4 text-center text-xs font-medium uppercase w-32">สถานะ</th>
+                                    <th class="px-6 py-4 text-right text-xs font-medium uppercase w-32">ดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsTable" class="bg-white divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= VIEW: JUDGING FORM (Modified) ================= -->
+    <div id="judgingView" class="hidden fixed inset-0 z-40 bg-slate-100 overflow-y-auto">
+        <div class="min-h-screen flex flex-col">
+            <header class="bg-white shadow-md py-3 px-4 sticky top-0 z-50 flex items-center gap-4 border-b border-yellow-500">
+                <button onclick="closeJudging()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+                    <i class="fas fa-arrow-left text-xl"></i>
+                </button>
+                <h1 class="font-bold text-lg text-blue-900">แบบฟอร์มการตัดสิน</h1>
+            </header>
+            
+            <main class="flex-1 p-4 max-w-4xl mx-auto w-full pb-20">
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6 border border-slate-200">
+                    <div class="mb-6 text-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-2 inline-block">กิจกรรม</span>
+                        <h2 id="judgingActivityName" class="text-2xl font-bold text-blue-900">ชื่อกิจกรรม</h2>
+                        <h3 id="judgingSubActivityName" class="text-lg text-slate-600 mt-1"></h3>
+                    </div>
+                    
+                    <form id="scoreForm">
+                        <!-- Winner Section -->
+                        <div class="mb-6 rounded-xl border-2 border-yellow-400 overflow-hidden shadow-sm">
+                             <div class="bg-yellow-400 px-4 py-2 flex items-center gap-2">
+                                <i class="fas fa-trophy text-blue-900 text-lg"></i>
+                                <h3 class="font-bold text-blue-900">รางวัลชนะเลิศ</h3>
+                             </div>
+                            <div class="p-4 bg-yellow-50/50 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="text-xs font-bold text-yellow-700 ml-1">เลือกโรงเรียน</label>
+                                    <select id="winner" class="school-select p-3 border border-yellow-200 rounded-lg w-full focus:outline-none focus:border-yellow-500 bg-white" onchange="updateStudents('winner')">
+                                        <option value="">กำลังโหลดข้อมูล...</option>
+                                    </select>
+                                    <!-- Display Participants Here -->
+                                    <div id="winner_students" class="mt-2 p-3 bg-white border border-yellow-100 rounded-lg text-sm text-slate-600 hidden">
+                                        <span class="font-bold text-yellow-700 block mb-1">ผู้เข้าร่วม:</span> 
+                                        <div class="content"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-yellow-700 ml-1">คะแนน</label>
+                                    <input type="number" id="winnerScore" class="p-3 border border-yellow-200 rounded-lg w-full bg-white" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-yellow-700 ml-1">เหรียญรางวัล</label>
+                                    <select id="winnerMedal" class="p-3 border border-yellow-200 rounded-lg w-full bg-white">
+                                        <option value="เหรียญทอง">เหรียญทอง</option>
+                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
+                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
+                                        <option value="-">เข้าร่วม</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Runner 1 -->
+                        <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
+                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                                <h3 class="font-bold text-slate-700">รองชนะเลิศอันดับ 1</h3>
+                            </div>
+                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
+                                    <select id="runner1" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('runner1')">
+                                        <option value="">เลือกโรงเรียน...</option>
+                                    </select>
+                                    <div id="runner1_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
+                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
+                                        <div class="content"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
+                                    <input type="number" id="runner1Score" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
+                                    <select id="runner1Medal" class="p-3 border border-slate-200 rounded-lg w-full">
+                                        <option value="เหรียญทอง">เหรียญทอง</option>
+                                        <option value="เหรียญเงิน" selected>เหรียญเงิน</option>
+                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
+                                        <option value="-">เข้าร่วม</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Runner 2 -->
+                        <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
+                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                                <h3 class="font-bold text-slate-700">รองชนะเลิศอันดับ 2</h3>
+                            </div>
+                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
+                                    <select id="runner2" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('runner2')">
+                                        <option value="">เลือกโรงเรียน...</option>
+                                    </select>
+                                    <div id="runner2_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
+                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
+                                        <div class="content"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
+                                    <input type="number" id="runner2Score" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
+                                    <select id="runner2Medal" class="p-3 border border-slate-200 rounded-lg w-full">
+                                        <option value="เหรียญทอง">เหรียญทอง</option>
+                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
+                                        <option value="เหรียญทองแดง" selected>เหรียญทองแดง</option>
+                                        <option value="-">เข้าร่วม</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                         <!-- Honorable -->
+                         <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
+                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                                <h3 class="font-bold text-slate-700">รางวัลชมเชย</h3>
+                            </div>
+                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
+                                    <select id="honorable" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('honorable')">
+                                        <option value="">เลือกโรงเรียน...</option>
+                                    </select>
+                                    <div id="honorable_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
+                                        <span class="font-bold text-slate-700 block mb-1">ผู้เข้าร่วม:</span> 
+                                        <div class="content"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
+                                    <input type="number" id="honorableScore" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
+                                    <select id="honorableMedal" class="p-3 border border-slate-200 rounded-lg w-full">
+                                        <option value="เหรียญทอง">เหรียญทอง</option>
+                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
+                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
+                                        <option value="-" selected>เข้าร่วม</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 flex gap-3 justify-center z-10 md:relative md:bg-transparent md:border-0 md:p-0 md:mt-8">
+                            <button type="button" onclick="closeJudging()" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 font-medium flex-1 md:flex-none">ยกเลิก</button>
+                            <button type="button" onclick="preSubmitJudgment()" class="px-8 py-3 bg-blue-900 hover:bg-blue-800 rounded-lg text-white shadow-lg font-bold flex-1 md:flex-none flex justify-center items-center gap-2">
+                                <i class="fas fa-save"></i> บันทึกผล
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="hidden fixed inset-0 z-[60] bg-slate-900 bg-opacity-70 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform scale-100 transition-transform">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-clipboard-check text-green-600 text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-blue-900">ยืนยันผลการตัดสิน</h3>
+                <p class="text-slate-500 text-sm">กรุณาตรวจสอบความถูกต้องก่อนบันทึก</p>
+            </div>
+            <div id="confirmContent" class="text-sm text-slate-700 space-y-3 mb-8 bg-slate-50 p-5 rounded-xl border border-slate-100"></div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('confirmModal').classList.add('hidden')" class="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">กลับไปแก้ไข</button>
+                <button onclick="submitJudgmentFinal()" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg">ยืนยันและบันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // ************************************************
+        // CONFIGURATION - นำ URL จาก Apps Script มาใส่ตรงนี้
+        // ************************************************
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyovfmd-2CZmcSRGbOCkg9YjCf45ZskHsJAKwytOmE5fC3SNlN4RmDtt7LjDTF_Drs0/exec'; 
+        // ************************************************
+
+        let currentUser = null;
+        let currentActivity = null;
+        let currentSubActivity = null; // Store sub activity
+        let currentParticipants = []; // Store fetched participants
+
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            input.type = input.type === "password" ? "text" : "password";
+        }
+
+        function switchView(viewId) {
+            ['loginView', 'registerView', 'dashboardView', 'judgingView'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+
+        function showLoading(show) {
+            document.getElementById('globalLoader').style.display = show ? 'flex' : 'none';
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const content = document.getElementById('toastContent');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+
+            content.className = `bg-white border-l-4 p-4 rounded-lg shadow-xl flex items-center border ${type === 'success' ? 'border-l-green-500 text-green-700 border-slate-100' : 'border-l-red-500 text-red-700 border-slate-100'}`;
+            icon.innerHTML = type === 'success' ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-500"></i>';
+            msg.innerText = message;
+
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+        }
+
+        async function callBackend(data) {
+            if (SCRIPT_URL === 'INSERT_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE' || SCRIPT_URL === '') {
+                alert('กรุณาใส่ Apps Script URL ในโค้ด HTML บรรทัดที่ 437 ก่อนใช้งาน');
+                return null;
+            }
+            showLoading(true);
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                const text = await response.text();
+                try {
+                    const result = JSON.parse(text);
+                    showLoading(false);
+                    return result;
+                } catch (e) {
+                    console.error("Non-JSON response:", text);
+                    throw new Error("Server Error: Script returned invalid format.");
+                }
+            } catch (error) {
+                showLoading(false);
+                console.error(error);
+                showToast('การเชื่อมต่อล้มเหลว: ' + error.message, 'error');
+                return null;
+            }
+        }
+
+        // --- Auth & Register ---
+        async function handleLogin() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if(!user || !pass) return showToast('กรุณากรอกข้อมูลให้ครบ', 'error');
+            const result = await callBackend({ action: 'login', username: user, password: pass });
+            if (result && result.status === 'success') {
+                currentUser = result.user;
+                if (document.getElementById('rememberMe').checked) localStorage.setItem('comp_user', JSON.stringify({u: user, p: pass}));
+                setupDashboard();
+            } else {
+                showToast(result?.message || 'เข้าสู่ระบบล้มเหลว', 'error');
+            }
+        }
+
+        function checkRemembered() {
+            const saved = localStorage.getItem('comp_user');
+            if(saved) {
+                const creds = JSON.parse(saved);
+                document.getElementById('username').value = creds.u;
+                document.getElementById('password').value = creds.p;
+            }
+        }
+        checkRemembered();
+
+        async function handleRegister() {
+            const p1 = document.getElementById('regPass').value;
+            const p2 = document.getElementById('regPassConfirm').value;
+            if(p1 !== p2) return showToast('รหัสผ่านไม่ตรงกัน', 'error');
+            const data = {
+                action: 'register',
+                name: document.getElementById('regName').value,
+                username: document.getElementById('regUser').value,
+                password: p1,
+                role: 'judge',
+                group: document.getElementById('regGroup').value
+            };
+            const result = await callBackend(data);
+            if (result && result.status === 'success') {
+                showToast(result.message);
+                document.getElementById('registerForm').reset();
+                switchView('loginView');
+            } else {
+                showToast(result?.message || 'ลงทะเบียนไม่สำเร็จ', 'error');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('comp_user');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            switchView('loginView');
+        }
+
+        // --- Dashboard Logic ---
+        function setupDashboard() {
+            switchView('dashboardView');
+            document.getElementById('welcomeName').innerText = `คุณ${currentUser.name}`;
+            document.getElementById('welcomeGroup').innerText = currentUser.group;
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminPanel').classList.remove('hidden');
+                document.getElementById('judgePanel').classList.remove('hidden');
+                loadPendingUsers();
+            } else {
+                document.getElementById('adminPanel').classList.add('hidden');
+                document.getElementById('judgePanel').classList.remove('hidden');
+            }
+            loadStats();
+            loadJudgingItems();
+        }
+
+        async function loadPendingUsers() {
+            const result = await callBackend({ action: 'getPendingUsers' });
+            const tbody = document.getElementById('approvalTable');
+            tbody.innerHTML = '';
+            if (result && result.data && result.data.length > 0) {
+                result.data.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-slate-800 font-medium">${user.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${user.username}</td>
+                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">${user.group}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="approveUser('${user.username}')" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold transition-all"><i class="fas fa-check mr-1"></i> อนุมัติ</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 italic">ไม่มีรายการรออนุมัติ</td></tr>';
+            }
+        }
+
+        async function approveUser(username) {
+            const result = await callBackend({ action: 'approveUser', username: username });
+            if(result.status === 'success') {
+                showToast('อนุมัติเรียบร้อย');
+                loadPendingUsers();
+            }
+        }
+
+        async function loadStats() {
+            const result = await callBackend({ action: 'getDashboardStats', group: currentUser.group });
+            if(result.status === 'success') {
+                document.getElementById('statTotal').innerText = result.total;
+                document.getElementById('statJudged').innerText = result.judged;
+            }
+        }
+
+        async function loadJudgingItems() {
+            const result = await callBackend({ action: 'getItemsToJudge', group: currentUser.group });
+            const tbody = document.getElementById('itemsTable');
+            tbody.innerHTML = '';
+            if (result && result.data) {
+                result.data.forEach(item => {
+                    const isDone = item.status === 'Judged';
+                    // Added display for registered count
+                    const registeredDisplay = item.registeredCount ? `<span class="text-xs text-slate-500 ml-2 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"><i class="fas fa-users mr-1"></i>${item.registeredCount} โรงเรียน</span>` : '';
+                    
+                    const tr = document.createElement('tr');
+                    tr.className = isDone ? 'bg-green-50/50 hover:bg-green-50 transition-colors' : 'hover:bg-slate-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-800">
+                            <div class="flex items-center">
+                                <span>${item.name}</span>
+                                ${registeredDisplay}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">${item.group}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${isDone ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-800 border border-yellow-200'}">
+                                ${isDone ? '<i class="fas fa-check-circle mr-1 mt-0.5"></i> ตัดสินแล้ว' : '<i class="fas fa-clock mr-1 mt-0.5"></i> รอตัดสิน'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-sm font-medium">
+                            <button onclick="openJudging('${item.name}')" class="w-full sm:w-auto text-white ${isDone ? 'bg-slate-400 hover:bg-slate-500' : 'bg-blue-900 hover:bg-blue-800'} px-4 py-2 rounded-lg shadow-sm text-sm font-bold transition-colors">
+                                ${isDone ? '<i class="fas fa-edit mr-1"></i> แก้ไข' : '<i class="fas fa-gavel mr-1"></i> ให้คะแนน'}
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // --- Judging Logic with Participant Fetching ---
+
+        async function openJudging(activityName) {
+            currentActivity = activityName;
+            
+            document.getElementById('judgingActivityName').innerText = activityName;
+            
+            document.getElementById('scoreForm').reset();
+            
+            // Clear previous displays
+            document.querySelectorAll('[id$="_students"]').forEach(el => {
+                el.classList.add('hidden');
+                el.querySelector('.content').innerHTML = '';
+            });
+
+            switchView('judgingView');
+            
+            // Fetch participants
+            const result = await callBackend({ action: 'getParticipants', activityName: activityName });
+            if (result && result.status === 'success') {
+                currentParticipants = result.data;
+                populateSchoolSelects();
+            } else {
+                showToast('ไม่พบข้อมูลผู้เข้าร่วมสำหรับกิจกรรมนี้', 'error');
+                currentParticipants = [];
+                populateSchoolSelects();
+            }
+        }
+
+        function populateSchoolSelects() {
+            const selects = document.querySelectorAll('.school-select');
+            selects.forEach(select => {
+                select.innerHTML = '<option value="">เลือกโรงเรียน...</option>';
+                currentParticipants.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.school;
+                    option.text = p.school;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // --- New Helper: Format Names ---
+        function formatStudentNames(text) {
+            if(!text) return "-";
+            let formatted = String(text); // Ensure it's a string
+            
+            // Expand titles
+            formatted = formatted.replace(/ด\.ช\./g, 'เด็กชาย');
+            formatted = formatted.replace(/ด\.ญ\./g, 'เด็กหญิง');
+            formatted = formatted.replace(/น\.ส\./g, 'นางสาว');
+            formatted = formatted.replace(/อ\./g, 'อาจารย์');
+            
+            // Optional: Handle multiple names (if comma or newline separated)
+            // Splitting and re-joining with <br> or styling
+            // Assuming comma separation is common
+            if(formatted.includes(',') || formatted.includes('\n')) {
+               const names = formatted.split(/,|\n/);
+               return names.map(n => n.trim()).filter(n => n).join('<br>');
+            }
+
+            return formatted;
+        }
+
+        function updateStudents(rankId) {
+            const select = document.getElementById(rankId);
+            const display = document.getElementById(rankId + '_students');
+            const content = display.querySelector('.content');
+            
+            const selectedSchool = select.value;
+            if (!selectedSchool) {
+                display.classList.add('hidden');
+                return;
+            }
+
+            const participant = currentParticipants.find(p => p.school === selectedSchool);
+            if (participant) {
+                // Apply beautiful formatting
+                content.innerHTML = formatStudentNames(participant.students);
+                display.classList.remove('hidden');
+            }
+        }
+
+        function closeJudging() {
+            currentActivity = null;
+            switchView('dashboardView');
+        }
+
+        function preSubmitJudgment() {
+            const winnerSchool = document.getElementById('winner').value;
+            if(!winnerSchool) return showToast('กรุณาเลือกโรงเรียนที่ได้รับรางวัลชนะเลิศ', 'error');
+
+            const content = `
+                <div class="flex justify-between border-b pb-2 border-slate-200">
+                    <span class="font-bold text-slate-500">กิจกรรม:</span>
+                    <div class="text-right">
+                        <div class="font-bold text-blue-900">${currentActivity}</div>
+                    </div>
+                </div>
+                <div class="flex justify-between py-2 border-b border-slate-200">
+                    <span class="font-bold text-slate-500">ชนะเลิศ:</span>
+                    <span class="font-bold text-yellow-600 text-right"><i class="fas fa-trophy mr-1"></i>${document.getElementById('winner').value}</span>
+                </div>
+                <div class="flex justify-between pt-2">
+                    <span class="text-slate-500">ผู้ตัดสิน:</span>
+                    <span class="text-slate-800 text-right">${currentUser.name}</span>
+                </div>
+            `;
+            document.getElementById('confirmContent').innerHTML = content;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        async function submitJudgmentFinal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            
+            // Helper to get school
+            const getSchool = (id) => {
+                const school = document.getElementById(id).value;
+                return school || "";
+            };
+
+            // Helper to get formatted student names
+            const getStudent = (id) => {
+                const school = document.getElementById(id).value;
+                if (!school) return "";
+                const part = currentParticipants.find(p => p.school === school);
+                // Convert back <br> to comma or just use formatted text without html
+                // Actually for saving, we might want raw or simple text. Let's use simple formatting.
+                if (!part) return "";
+                let rawNames = String(part.students);
+                rawNames = rawNames.replace(/ด\.ช\./g, 'เด็กชาย').replace(/ด\.ญ\./g, 'เด็กหญิง').replace(/น\.ส\./g, 'นางสาว').replace(/อ\./g, 'อาจารย์');
+                return rawNames;
+            };
+
+            const data = {
+                action: 'saveJudgment',
+                judgeName: currentUser.name,
+                activityName: currentActivity,
+                
+                winnerSchool: getSchool('winner'),
+                winnerStudent: getStudent('winner'),
+                winnerScore: document.getElementById('winnerScore').value,
+                winnerMedal: document.getElementById('winnerMedal').value,
+                
+                runner1School: getSchool('runner1'),
+                runner1Student: getStudent('runner1'),
+                runner1Score: document.getElementById('runner1Score').value,
+                runner1Medal: document.getElementById('runner1Medal').value,
+                
+                runner2School: getSchool('runner2'),
+                runner2Student: getStudent('runner2'),
+                runner2Score: document.getElementById('runner2Score').value,
+                runner2Medal: document.getElementById('runner2Medal').value,
+                
+                honorableSchool: getSchool('honorable'),
+                honorableStudent: getStudent('honorable'),
+                honorableScore: document.getElementById('honorableScore').value,
+                honorableMedal: document.getElementById('honorableMedal').value,
+            };
+
+            const result = await callBackend(data);
+            if (result && result.status === 'success') {
+                showToast('บันทึกผลการแข่งขันเรียบร้อย');
+                closeJudging();
+                loadStats();
+                loadJudgingItems();
+            } else {
+                showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
