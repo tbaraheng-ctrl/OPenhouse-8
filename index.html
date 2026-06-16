@@ -3,830 +3,1692 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบกรรมการตัดสินกิจกรรมการแข่งขัน - โรงเรียนนราสิกขาลัย</title>
+    <title>ระบบพิมพ์บัตรนักเรียน PVC</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
+    
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts: Prompt -->
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Fonts (Prompt) -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
-        .school-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); }
-        .loading-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(15, 23, 42, 0.7); z-index: 50; display: none; 
-            justify-content: center; align-items: center; backdrop-filter: blur(4px);
+        body { font-family: 'Prompt', sans-serif; }
+        
+        .view-hidden { display: none !important; }
+        
+        @media screen {
+            #print-root { display: none !important; }
         }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+
+            html, body { 
+                height: auto !important; 
+                overflow: visible !important; 
+                display: block !important; 
+                background: transparent !important; 
+            }
+            
+            header, main, #photo-editor-modal, .no-print { display: none !important; }
+            
+            #print-root { 
+                display: block !important; 
+                position: relative !important; 
+                width: 100%; 
+                margin: 0; 
+                padding: 0; 
+                visibility: visible; 
+            }
+            #print-root * { visibility: visible; }
+            
+            @page { 
+                size: var(--page-width, 85.6mm) var(--page-height, 54mm); 
+                margin: 0; 
+            }
+            .pvc-page {
+                page-break-after: always;
+                width: var(--page-width, 85.6mm);
+                height: var(--page-height, 54mm);
+                overflow: hidden;
+                position: relative;
+                display: block;
+            }
+            .pvc-content {
+                width: var(--content-width, 856px) !important;
+                height: var(--content-height, 540px) !important;
+                transform: scale(0.37795); 
+                transform-origin: top left;
+                border: none !important;
+                box-shadow: none !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+        }
     </style>
 </head>
-<body class="min-h-screen text-slate-800">
+<body class="min-h-screen bg-gray-100 flex flex-col h-screen overflow-hidden">
 
-    <!-- Loading Spinner -->
-    <div id="globalLoader" class="loading-overlay">
-        <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center border-t-4 border-yellow-500">
-            <i class="fas fa-circle-notch fa-spin text-5xl text-blue-900 mb-4"></i>
-            <p class="text-blue-900 font-medium">กำลังประมวลผล...</p>
+    <!-- Navbar -->
+    <header class="bg-blue-700 text-white p-4 shadow-md flex justify-between items-center z-10 no-print shrink-0">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            <i class="fas fa-print"></i> ระบบพิมพ์บัตรนักเรียน PVC
+        </h1>
+        <div class="flex gap-4">
+            <button id="btn-nav-settings" onclick="switchMenu('settings')" class="flex items-center gap-2 px-4 py-2 rounded-md transition bg-blue-800 shadow-inner">
+                <i class="fas fa-cog"></i> ออกแบบเทมเพลต
+            </button>
+            <button id="btn-nav-print" onclick="switchMenu('print')" class="flex items-center gap-2 px-4 py-2 rounded-md transition hover:bg-blue-600">
+                <i class="fas fa-print"></i> พิมพ์บัตร
+            </button>
         </div>
-    </div>
+    </header>
 
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300 max-w-xs w-full">
-        <div id="toastContent" class="bg-white border-l-4 p-4 rounded-lg shadow-xl flex items-center border">
-            <div id="toastIcon" class="mr-3 text-xl"></div>
-            <div id="toastMessage" class="font-medium text-sm"></div>
-        </div>
-    </div>
+    <!-- Main Content -->
+    <main class="flex-1 p-6 flex overflow-hidden relative w-full h-full">
 
-    <!-- ================= VIEW: LOGIN ================= -->
-    <div id="loginView" class="min-h-screen flex items-center justify-center p-4 school-gradient">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 border-t-8 border-yellow-500 relative overflow-hidden">
-             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-50 rounded-full opacity-50 z-0"></div>
-            <div class="text-center mb-8 relative z-10">
-                <img src="https://www.ns.ac.th/wp-content/uploads/2024/12/cropped-logo-sq.png" alt="Logo" class="w-28 h-28 mx-auto mb-4 object-contain drop-shadow-md">
-                <h2 class="text-2xl font-bold text-blue-900">โรงเรียนนราสิกขาลัย</h2>
-                <p class="text-slate-500 mt-1 text-sm">ระบบกรรมการตัดสินกิจกรรมการแข่งขัน</p>
-            </div>
-            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();" class="relative z-10">
-                <div class="mb-5">
-                    <label class="block text-slate-700 text-sm font-semibold mb-2">ชื่อผู้ใช้</label>
-                    <input type="text" id="username" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-900 bg-slate-50" required>
+        <!-- ================= VIEW: SETTINGS ================= -->
+        <div id="view-settings" class="flex w-full gap-6 h-full no-print">
+            
+            <!-- Sidebar: Tools -->
+            <div class="w-80 bg-white p-5 rounded-lg shadow-md overflow-y-auto flex flex-col h-full shrink-0">
+                <h2 class="text-lg font-bold mb-4 border-b pb-2">เครื่องมือออกแบบ</h2>
+                
+                <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-md shrink-0">
+                    <button id="btn-side-front" onclick="setActiveSide('front')" class="flex-1 py-2 text-sm rounded font-bold transition bg-white shadow text-blue-700">ด้านหน้า</button>
+                    <button id="btn-side-back" onclick="setActiveSide('back')" class="flex-1 py-2 text-sm rounded font-bold transition text-gray-500 hover:bg-gray-200">ด้านหลัง</button>
                 </div>
-                <div class="mb-6">
-                    <label class="block text-slate-700 text-sm font-semibold mb-2">รหัสผ่าน</label>
-                    <div class="relative">
-                        <input type="password" id="password" class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-900 bg-slate-50" required>
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-slate-400" onclick="togglePassword('password')">
-                            <i class="fas fa-eye"></i>
-                        </span>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between mb-8">
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" id="rememberMe" class="form-checkbox text-blue-900 rounded">
-                        <span class="ml-2 text-sm text-slate-600">จดจำฉัน</span>
+
+                <div class="mb-4 shrink-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        การจัดวางการ์ด <span class="text-xs text-gray-500 font-normal">(CR80)</span>
                     </label>
-                </div>
-                <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 text-blue-900 font-bold py-3.5 rounded-lg shadow-lg">เข้าสู่ระบบ</button>
-                <div class="mt-6 text-center pt-4">
-                    <button type="button" onclick="switchView('registerView')" class="text-slate-500 hover:text-blue-900 text-sm underline decoration-dotted">ลงทะเบียนกรรมการใหม่</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ================= VIEW: REGISTER ================= -->
-    <div id="registerView" class="hidden min-h-screen flex items-center justify-center p-4 bg-slate-100">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-8 border-t-4 border-blue-900">
-            <h2 class="text-2xl font-bold text-center text-blue-900 mb-6">ลงทะเบียนกรรมการ</h2>
-            <form id="registerForm" onsubmit="event.preventDefault(); handleRegister();">
-                <div class="grid grid-cols-1 gap-4">
-                    <input type="text" id="regName" placeholder="ชื่อ-นามสกุล" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
-                    <input type="text" id="regUser" placeholder="ชื่อผู้ใช้" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="password" id="regPass" placeholder="รหัสผ่าน" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
-                        <input type="password" id="regPassConfirm" placeholder="ยืนยันรหัสผ่าน" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
-                    </div>
-                    <select id="regGroup" class="w-full p-3 border border-slate-200 rounded-lg bg-slate-50" required>
-                        <option value="">เลือกกลุ่มสาระฯ</option>
-                        <option value="ภาษาไทย">ภาษาไทย</option>
-                        <option value="คณิตศาสตร์">คณิตศาสตร์</option>
-                        <option value="วิทยาศาสตร์">วิทยาศาสตร์</option>
-                        <option value="สังคมศึกษา">สังคมศึกษา</option>
-                        <option value="ภาษาต่างประเทศ">ภาษาต่างประเทศ</option>
-                        <option value="สุขศึกษา">สุขศึกษา</option>
-                        <option value="ศิลปะ">ศิลปะ</option>
-                        <option value="การงานอาชีพ">การงานอาชีพ</option>
-                    </select>
-                </div>
-                <div class="mt-8 flex gap-3">
-                    <button type="button" onclick="switchView('loginView')" class="flex-1 py-3 border rounded-lg hover:bg-slate-50">ยกเลิก</button>
-                    <button type="submit" class="flex-1 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 shadow-md">ยืนยัน</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ================= VIEW: DASHBOARD ================= -->
-    <div id="dashboardView" class="hidden min-h-screen flex flex-col bg-slate-50">
-        <header class="bg-blue-900 text-white shadow-lg py-3 px-4 flex justify-between items-center sticky top-0 z-30">
-            <div class="flex items-center gap-3">
-                <div class="bg-white p-1 rounded-full shadow-sm">
-                    <img src="https://www.ns.ac.th/wp-content/uploads/2024/12/cropped-logo-sq.png" class="h-8 md:h-10">
-                </div>
-                <div>
-                    <h1 class="font-bold text-base md:text-lg leading-tight">ระบบตัดสินการแข่งขัน</h1>
-                    <div class="text-xs text-blue-200 flex flex-wrap gap-2 items-center mt-0.5">
-                        <span id="welcomeName"></span>
-                        <span id="welcomeGroup" class="bg-yellow-500 text-blue-900 px-2 py-0.5 rounded text-[10px] font-bold"></span>
-                    </div>
-                </div>
-            </div>
-            <button onclick="handleLogout()" class="text-white bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition"><i class="fas fa-sign-out-alt"></i></button>
-        </header>
-
-        <main class="flex-1 p-4 md:p-6 overflow-y-auto max-w-7xl mx-auto w-full">
-            <!-- Admin Panel -->
-            <div id="adminPanel" class="hidden space-y-6 mb-8">
-                <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">อนุมัติผู้ใช้งาน</h2>
-                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-200">
-                            <thead class="bg-blue-900 text-white">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">ชื่อ-สกุล</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">Username</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium uppercase">กลุ่มสาระ</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase">จัดการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="approvalTable" class="bg-white divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Judge Panel -->
-            <div id="judgePanel" class="hidden space-y-6">
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white rounded-xl p-5 shadow-md border-l-4 border-blue-900">
-                        <p class="text-slate-500 text-sm font-medium">กิจกรรมทั้งหมด</p>
-                        <h3 id="statTotal" class="text-4xl font-bold text-blue-900">0</h3>
-                    </div>
-                    <div class="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl p-5 shadow-md text-blue-900">
-                        <p class="text-blue-900/80 text-sm font-bold">ตัดสินแล้ว</p>
-                        <h3 id="statJudged" class="text-4xl font-bold text-blue-900">0</h3>
+                    <div class="flex gap-2">
+                        <button id="btn-ori-landscape" onclick="setOrientation('landscape')" class="flex-1 py-2 text-sm border rounded transition bg-blue-50 border-blue-500 text-blue-700">แนวนอน</button>
+                        <button id="btn-ori-portrait" onclick="setOrientation('portrait')" class="flex-1 py-2 text-sm border rounded transition bg-gray-50 hover:bg-gray-100">แนวตั้ง</button>
                     </div>
                 </div>
 
-                <div class="flex justify-between items-center mb-4">
-                     <div class="flex items-center gap-3">
-                        <h2 class="text-xl font-bold text-blue-900 border-l-4 border-yellow-500 pl-3">รายการที่ต้องตัดสิน</h2>
-                        <!-- Group Filter Dropdown -->
-                        <div id="groupFilterContainer" class="hidden">
-                            <select id="groupFilter" onchange="loadJudgingItems()" class="bg-white border border-blue-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
-                                <option value="All">ทั้งหมด</option>
-                            </select>
+                <!-- ปรับปรุง: การจัดการพื้นหลังการ์ด -->
+                <div class="mb-4 space-y-3 shrink-0">
+                    <label class="block text-sm font-medium text-gray-700">พื้นหลังการ์ด (อัปโหลด หรือ วางลิงก์)</label>
+                    
+                    <!-- ด้านหน้า -->
+                    <div class="p-2 border border-gray-200 rounded-md bg-gray-50">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-bold text-blue-700">ด้านหน้า:</span>
+                            <button id="btn-remove-bg-front" onclick="removeBg('front')" class="text-xs text-red-500 hover:underline view-hidden">ลบรูป</button>
                         </div>
-                     </div>
-                    <button onclick="loadJudgingItems()" class="bg-white text-blue-900 border border-blue-200 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 shadow-sm"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
+                        <input type="file" accept="image/*" onchange="handleBgUpload(event, 'front')" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border rounded mb-1" />
+                        <input type="text" id="bg-link-front" placeholder="หรือวางลิงก์จากเว็บรับฝากรูป (.jpg/.png)" oninput="handleBgLink(this.value, 'front')" class="w-full text-xs border rounded p-1.5 outline-none focus:ring-1 focus:ring-blue-500 bg-white" />
+                    </div>
+
+                    <!-- ด้านหลัง -->
+                    <div class="p-2 border border-gray-200 rounded-md bg-gray-50">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-bold text-blue-700">ด้านหลัง:</span>
+                            <button id="btn-remove-bg-back" onclick="removeBg('back')" class="text-xs text-red-500 hover:underline view-hidden">ลบรูป</button>
+                        </div>
+                        <input type="file" accept="image/*" onchange="handleBgUpload(event, 'back')" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border rounded mb-1" />
+                        <input type="text" id="bg-link-back" placeholder="หรือวางลิงก์จากเว็บรับฝากรูป (.jpg/.png)" oninput="handleBgLink(this.value, 'back')" class="w-full text-xs border rounded p-1.5 outline-none focus:ring-1 focus:ring-blue-500 bg-white" />
+                    </div>
+                </div>
+
+                <div class="mb-4 shrink-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">แทรกข้อมูล (<span id="lbl-active-side">หน้า</span>)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="addElement('cardNumber', 'text')" class="px-2 py-1.5 bg-yellow-50 hover:bg-yellow-200 border border-yellow-200 text-yellow-800 rounded text-sm text-left transition font-medium">เลขที่บัตร</button>
+                        <button onclick="addElement('id', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">เลขประจำตัว</button>
+                        <button onclick="addElement('name', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">ชื่อ-สกุล</button>
+                        <button onclick="addElement('classRoom', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">ชั้น/ห้อง</button>
+                        <button onclick="addElement('address', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">ที่อยู่</button>
+                        <button onclick="addElement('issueDate', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">วันออกบัตร</button>
+                        <button onclick="addElement('expiryDate', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">วันหมดอายุ</button>
+                        <button onclick="addElement('birthdate', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">วันเกิด</button>
+                        <button onclick="addElement('nationalId', 'text')" class="px-2 py-1.5 bg-gray-50 hover:bg-gray-200 border rounded text-sm text-left transition">เลขบัตร ปชช.</button>
+                        <button onclick="addElement('photo', 'image')" class="px-2 py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded text-sm text-left flex items-center transition"><i class="fas fa-image mr-1"></i> รูปถ่าย</button>
+                        <button onclick="addElement('qrcode', 'qr')" class="px-2 py-1.5 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-700 rounded text-sm text-left flex items-center col-span-2 transition"><i class="fas fa-qrcode mr-1"></i> QR Code (รหัส)</button>
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">ลายเซ็น (ใช้ลิงก์ URL)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="sigUrlInput" placeholder="https://..." class="flex-1 text-sm border rounded p-1 outline-none focus:ring-1 focus:ring-green-500" />
+                            <button onclick="addSignature()" class="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-sm font-medium transition">เพิ่ม</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="properties-panel"></div>
+                
+                <div class="mt-auto pt-4 shrink-0">
+                    <button id="btn-save-template" onclick="saveTemplateSettings()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md font-bold flex items-center justify-center gap-2 transition shadow-md">
+                        <i class="fas fa-save" id="icon-save-template"></i> <span id="text-save-template">บันทึกเทมเพลต</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 bg-gray-300 rounded-lg shadow-inner flex flex-col items-center justify-center p-6 overflow-auto relative" onclick="clearSelection(event)" id="canvas-wrapper-outer">
+                <div class="absolute top-4 left-4 bg-white/80 backdrop-blur px-3 py-1.5 rounded shadow text-sm font-medium text-gray-700 z-10 flex items-center gap-2">
+                    <i class="fas fa-arrows-alt text-blue-500"></i> พื้นที่ออกแบบ (ด้าน<span id="lbl-canvas-side">หน้า</span>)
                 </div>
                 
-                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-200">
-                            <thead class="bg-blue-900 text-white">
-                                <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-medium uppercase">ชื่อกิจกรรม</th>
-                                    <th class="px-6 py-4 text-left text-xs font-medium uppercase w-48">กลุ่มสาระ</th>
-                                    <th class="px-6 py-4 text-center text-xs font-medium uppercase w-32">สถานะ</th>
-                                    <th class="px-6 py-4 text-right text-xs font-medium uppercase w-32">ดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="itemsTable" class="bg-white divide-y divide-slate-100 text-sm"></tbody>
-                        </table>
+                <div id="design-canvas-wrapper" style="position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+                    <div id="design-canvas" class="bg-white overflow-hidden relative rounded-sm" style="transform: scale(0.65); transform-origin: top left; background-size: cover; background-position: center;">
+                        <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px); background-size: 20px 20px;"></div>
+                        <div id="design-elements-container" class="absolute inset-0"></div>
                     </div>
                 </div>
+
+                <div class="mt-8 text-gray-500 text-sm flex gap-6">
+                    <span>ขนาดบัตรจริง: 85.6 x 54 มม. (CR80)</span>
+                    <span>ขนาดออกแบบ: 856 x 540 พิกเซล</span>
+                </div>
             </div>
-        </main>
-    </div>
+        </div>
 
-    <!-- ================= VIEW: JUDGING FORM (Modified) ================= -->
-    <div id="judgingView" class="hidden fixed inset-0 z-40 bg-slate-100 overflow-y-auto">
-        <div class="min-h-screen flex flex-col">
-            <header class="bg-white shadow-md py-3 px-4 sticky top-0 z-50 flex items-center gap-4 border-b border-yellow-500">
-                <button onclick="closeJudging()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
-                    <i class="fas fa-arrow-left text-xl"></i>
-                </button>
-                <h1 class="font-bold text-lg text-blue-900">แบบฟอร์มการตัดสิน</h1>
-            </header>
+        <!-- ================= VIEW: PRINT & DATA ================= -->
+        <div id="view-print" class="flex w-full gap-6 h-full no-print view-hidden">
             
-            <main class="flex-1 p-4 max-w-4xl mx-auto w-full pb-20">
-                <div class="bg-white rounded-xl shadow-lg p-6 mb-6 border border-slate-200">
-                    <div class="mb-6 text-center">
-                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mb-2 inline-block">กิจกรรม</span>
-                        <h2 id="judgingActivityName" class="text-2xl font-bold text-blue-900">ชื่อกิจกรรม</h2>
-                        <h3 id="judgingSubActivityName" class="text-lg text-slate-600 mt-1"></h3>
+            <!-- Sidebar: Data -->
+            <div class="w-80 bg-white p-5 rounded-lg shadow-md flex flex-col h-full shrink-0">
+                <h2 class="text-lg font-bold mb-4 border-b pb-2">เลือกข้อมูลนักเรียน</h2>
+
+                <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-md shrink-0">
+                    <button id="btn-mode-indiv" onclick="setPrintMode('individual')" class="flex-1 py-1.5 text-sm rounded font-bold transition bg-white shadow text-blue-700">ค้นหารายบุคคล</button>
+                    <button id="btn-mode-group" onclick="setPrintMode('group')" class="flex-1 py-1.5 text-sm rounded font-bold transition text-gray-500 hover:bg-gray-200">กรองตามห้อง</button>
+                </div>
+
+                <div id="filter-indiv" class="mb-4 shrink-0 relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" id="search-query" oninput="handleSearch()" placeholder="ค้นหาชื่อ หรือ รหัส..." class="w-full border rounded-md pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+
+                <div id="filter-group" class="flex gap-2 mb-4 shrink-0 view-hidden">
+                    <select id="select-class" onchange="handleGroupFilter()" class="flex-1 border rounded-md p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกระดับชั้น</option>
+                    </select>
+                    <select id="select-room" onchange="handleGroupFilter()" class="w-24 border rounded-md p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">ทุกห้อง</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-between items-center mb-2 px-1 shrink-0">
+                    <span class="text-sm font-medium text-gray-700" id="lbl-found-count">พบ 0 รายการ</span>
+                    <button onclick="toggleSelectAll()" id="btn-select-all" class="text-sm text-blue-600 hover:text-blue-800 font-medium">เลือกทั้งหมด</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto border rounded-md mb-4 bg-gray-50">
+                    <div id="loading-indicator" class="flex justify-center items-center h-full text-gray-500 view-hidden">
+                        <i class="fas fa-sync fa-spin mr-2"></i> กำลังโหลด...
                     </div>
+                    <ul id="student-list" class="divide-y">
+                        <!-- รายชื่อนักเรียนจะแสดงที่นี่ -->
+                    </ul>
+                </div>
+
+                <div class="shrink-0 pt-3 pb-1 border-t text-center">
+                    <div class="text-sm">เลือกแล้ว: <span id="lbl-selected-count" class="font-bold text-blue-600">0</span> คน</div>
+                </div>
+            </div>
+
+            <!-- Print Preview Area -->
+            <div class="flex-1 bg-gray-200 rounded-lg shadow-inner flex flex-col p-6 overflow-hidden">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 shrink-0 gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-700">ตัวอย่างบัตร (Print Preview)</h2>
+                        <div class="text-xs text-gray-500 mt-1">รองรับเครื่องพิมพ์ Hiti CS-270 (หรือ CR80) ระบบจะพิมพ์หน้า-หลังอัตโนมัติ</div>
+                    </div>
+
+                    <!-- ตั้งค่าการพิมพ์ -->
+                    <div class="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-bold text-gray-700 whitespace-nowrap">หน้าที่จะพิมพ์:</label>
+                            <select id="print-side-select" onchange="setPrintSide(this.value)" class="border rounded-md p-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-pointer">
+                                <option value="both">พิมพ์ทั้งหน้า-หลัง</option>
+                                <option value="front">พิมพ์เฉพาะด้านหน้า</option>
+                                <option value="back">พิมพ์เฉพาะด้านหลัง</option>
+                            </select>
+                        </div>
+                        <button id="btn-do-print" onclick="triggerPrint()" disabled class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-md font-bold flex items-center justify-center gap-2 transition shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap">
+                            <i class="fas fa-print"></i> สั่งพิมพ์บัตร (<span id="lbl-print-count">0</span> ใบ)
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Pagination -->
+                <div id="preview-pagination" class="flex justify-center mb-4 shrink-0 view-hidden">
+                    <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-300">
+                        <button onclick="changePreviewPage(-1)" id="btn-prev-page" class="p-1 rounded-full hover:bg-gray-100 disabled:opacity-30 transition text-gray-600"><i class="fas fa-chevron-left"></i></button>
+                        <span id="lbl-preview-page" class="text-sm font-bold text-gray-700 min-w-[120px] text-center">คนที่ 1 / 1</span>
+                        <button onclick="changePreviewPage(1)" id="btn-next-page" class="p-1 rounded-full hover:bg-gray-100 disabled:opacity-30 transition text-gray-600"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto pb-10" id="preview-container">
+                    <div class="h-full flex flex-col items-center justify-center text-gray-400" id="preview-empty-state">
+                        <i class="fas fa-print fa-3x mb-4 opacity-50"></i>
+                        <p>กรุณาเลือกนักเรียนจากรายชื่อด้านซ้าย เพื่อดูตัวอย่างบัตร</p>
+                    </div>
+                    <div id="preview-card-holder" class="flex flex-col items-center w-full max-w-4xl mx-auto view-hidden"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= PRINT ROOT AREA ================= -->
+    <div id="print-root"></div>
+
+    <!-- ================= MODAL: PHOTO EDITOR ================= -->
+    <div id="photo-editor-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 view-hidden no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-gray-50 border-b px-6 py-4 flex justify-between items-center shrink-0">
+              <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-image text-blue-500"></i> จัดการรูปภาพ: <span id="editor-student-name"></span>
+              </h3>
+              <button onclick="closePhotoEditor()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Canvas Preview -->
+                <div class="flex-1 bg-gray-900 flex items-center justify-center p-6 relative">
+                    <canvas id="editor-canvas" width="300" height="400" class="bg-white shadow-lg border border-gray-700" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>
+                </div>
+
+                <!-- Controls -->
+                <div class="w-80 bg-white p-6 border-l overflow-y-auto shrink-0 flex flex-col gap-4">
                     
-                    <form id="scoreForm">
-                        <!-- Winner Section -->
-                        <div class="mb-6 rounded-xl border-2 border-yellow-400 overflow-hidden shadow-sm">
-                             <div class="bg-yellow-400 px-4 py-2 flex items-center gap-2">
-                                <i class="fas fa-trophy text-blue-900 text-lg"></i>
-                                <h3 class="font-bold text-blue-900">รางวัลชนะเลิศ</h3>
-                             </div>
-                            <div class="p-4 bg-yellow-50/50 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="text-xs font-bold text-yellow-700 ml-1">เลือกโรงเรียน</label>
-                                    <select id="winner" class="school-select p-3 border border-yellow-200 rounded-lg w-full focus:outline-none focus:border-yellow-500 bg-white" onchange="updateStudents('winner')">
-                                        <option value="">กำลังโหลดข้อมูล...</option>
-                                    </select>
-                                    <!-- Display Participants Here -->
-                                    <div id="winner_students" class="mt-2 p-3 bg-white border border-yellow-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <div class="content"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs font-bold text-yellow-700 ml-1">คะแนน</label>
-                                    <input type="number" id="winnerScore" class="p-3 border border-yellow-200 rounded-lg w-full bg-white" placeholder="0">
-                                </div>
-                                <div>
-                                    <label class="text-xs font-bold text-yellow-700 ml-1">เหรียญรางวัล</label>
-                                    <select id="winnerMedal" class="p-3 border border-yellow-200 rounded-lg w-full bg-white">
-                                        <option value="เหรียญทอง">เหรียญทอง</option>
-                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
-                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
-                                        <option value="-">เข้าร่วม</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Runner 1 -->
-                        <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
-                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
-                                <h3 class="font-bold text-slate-700">รองชนะเลิศอันดับ 1</h3>
-                            </div>
-                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
-                                    <select id="runner1" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('runner1')">
-                                        <option value="">เลือกโรงเรียน...</option>
-                                    </select>
-                                    <div id="runner1_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <div class="content"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
-                                    <input type="number" id="runner1Score" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
-                                    <select id="runner1Medal" class="p-3 border border-slate-200 rounded-lg w-full">
-                                        <option value="เหรียญทอง">เหรียญทอง</option>
-                                        <option value="เหรียญเงิน" selected>เหรียญเงิน</option>
-                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
-                                        <option value="-">เข้าร่วม</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Runner 2 -->
-                        <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
-                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
-                                <h3 class="font-bold text-slate-700">รองชนะเลิศอันดับ 2</h3>
-                            </div>
-                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
-                                    <select id="runner2" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('runner2')">
-                                        <option value="">เลือกโรงเรียน...</option>
-                                    </select>
-                                    <div id="runner2_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <div class="content"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
-                                    <input type="number" id="runner2Score" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
-                                    <select id="runner2Medal" class="p-3 border border-slate-200 rounded-lg w-full">
-                                        <option value="เหรียญทอง">เหรียญทอง</option>
-                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
-                                        <option value="เหรียญทองแดง" selected>เหรียญทองแดง</option>
-                                        <option value="-">เข้าร่วม</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                         <!-- Honorable -->
-                         <div class="mb-6 rounded-xl border border-slate-300 overflow-hidden shadow-sm">
-                            <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
-                                <h3 class="font-bold text-slate-700">รางวัลชมเชย</h3>
-                            </div>
-                            <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="text-xs text-slate-500 ml-1">เลือกโรงเรียน</label>
-                                    <select id="honorable" class="school-select p-3 border border-slate-200 rounded-lg w-full focus:border-blue-500" onchange="updateStudents('honorable')">
-                                        <option value="">เลือกโรงเรียน...</option>
-                                    </select>
-                                    <div id="honorable_students" class="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-600 hidden">
-                                        <div class="content"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">คะแนน</label>
-                                    <input type="number" id="honorableScore" class="p-3 border border-slate-200 rounded-lg w-full" placeholder="0">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-500 ml-1">เหรียญรางวัล</label>
-                                    <select id="honorableMedal" class="p-3 border border-slate-200 rounded-lg w-full">
-                                        <option value="เหรียญทอง">เหรียญทอง</option>
-                                        <option value="เหรียญเงิน">เหรียญเงิน</option>
-                                        <option value="เหรียญทองแดง">เหรียญทองแดง</option>
-                                        <option value="-" selected>เข้าร่วม</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 flex gap-3 justify-center z-10 md:relative md:bg-transparent md:border-0 md:p-0 md:mt-8">
-                            <button type="button" onclick="closeJudging()" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 font-medium flex-1 md:flex-none">ยกเลิก</button>
-                            <button type="button" onclick="preSubmitJudgment()" class="px-8 py-3 bg-blue-900 hover:bg-blue-800 rounded-lg text-white shadow-lg font-bold flex-1 md:flex-none flex justify-center items-center gap-2">
-                                <i class="fas fa-save"></i> บันทึกผล
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <i class="fas fa-file-image"></i> อัปโหลดรูปภาพใหม่
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="file" accept="image/*" onchange="handleEditorUpload(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border rounded-md" />
+                            <button id="btn-flip" onclick="toggleFlip()" class="px-3 py-2 border rounded-md flex items-center justify-center transition bg-gray-50 text-gray-600 hover:bg-gray-100" title="กลับซ้ายขวา">
+                                <i class="fas fa-exchange-alt"></i>
                             </button>
                         </div>
-                    </form>
+                    </div>
+
+                    <!-- AI & Filters Section -->
+                    <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm">
+                        <button id="btn-ai-enhance" onclick="autoEnhancePhoto(this)" class="w-full py-2.5 mb-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg hover:opacity-90 transition-all flex items-center justify-center font-bold text-sm tracking-wide gap-2">
+                            <i class="fas fa-magic"></i> AI แต่งอัตโนมัติ (ลดเหลือง)
+                        </button>
+                        
+                        <label class="block text-xs font-bold text-purple-700 mb-1.5"><i class="fas fa-filter"></i> เลือกฟิลเตอร์ (Filters)</label>
+                        <select onchange="applyFilterPreset(this.value)" class="w-full border border-purple-200 rounded-md p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white cursor-pointer text-purple-800 font-medium">
+                            <option value="none">-- รูปแบบดั้งเดิม --</option>
+                            <option value="ig_clear">✨ สไตล์ IG (หน้าใส / ลบเหลือง)</option>
+                            <option value="line_beauty">🌸 สไตล์ LINE (เนียนสว่าง / อมชมพู)</option>
+                            <option value="studio">📸 สไตล์ Studio (สว่างชัดเจน)</option>
+                        </select>
+                    </div>
+
+                    <div class="border-t pt-3">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-search-plus"></i> ซูม (Zoom)</span>
+                            <span id="val-zoom" class="text-gray-500 font-normal">100%</span>
+                        </label>
+                        <input type="range" id="inp-zoom" min="0.5" max="3" step="0.05" value="1" oninput="updateEditorSetting('zoom', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><i class="fas fa-arrows-alt"></i> เลื่อนตำแหน่ง (Pan)</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="text-xs text-gray-500 mb-1 block">แนวนอน (X)</span>
+                                <input type="range" id="inp-panX" min="-200" max="200" value="0" oninput="updateEditorSetting('panX', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 mb-1 block">แนวตั้ง (Y)</span>
+                                <input type="range" id="inp-panY" min="-200" max="200" value="0" oninput="updateEditorSetting('panY', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-sun"></i> ความสว่าง</span>
+                            <span id="val-brightness" class="text-gray-500 font-normal">100%</span>
+                        </label>
+                        <input type="range" id="inp-brightness" min="50" max="150" value="100" oninput="updateEditorSetting('brightness', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-500" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-magic text-pink-400"></i> ปรับผิวเนียน/สว่าง</span>
+                            <span id="val-whitening" class="text-gray-500 font-normal">0</span>
+                        </label>
+                        <input type="range" id="inp-whitening" min="0" max="100" value="0" oninput="updateEditorSetting('whitening', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-500" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-thermometer-half text-blue-500"></i> โทนสี (แก้ภาพเหลือง)</span>
+                            <span id="val-temperature" class="text-gray-500 font-normal">0</span>
+                        </label>
+                        <input type="range" id="inp-temperature" min="-50" max="50" value="0" oninput="updateEditorSetting('temperature', this.value)" class="w-full h-2 bg-gradient-to-r from-blue-400 via-gray-200 to-orange-400 rounded-lg appearance-none cursor-pointer" />
+                    </div>
+
+                    <div class="mt-auto flex gap-3 pt-4 border-t">
+                        <button onclick="closePhotoEditor()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md font-medium transition">ยกเลิก</button>
+                        <button id="btn-save-photo" onclick="saveEditedPhoto()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold flex items-center justify-center gap-2 transition shadow-md"><i class="fas fa-check"></i> บันทึก</button>
+                    </div>
+
                 </div>
-            </main>
+            </div>
         </div>
     </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="hidden fixed inset-0 z-[60] bg-slate-900 bg-opacity-70 flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform scale-100 transition-transform">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <i class="fas fa-clipboard-check text-green-600 text-3xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-blue-900">ยืนยันผลการตัดสิน</h3>
-                <p class="text-slate-500 text-sm">กรุณาตรวจสอบความถูกต้องก่อนบันทึก</p>
-            </div>
-            <div id="confirmContent" class="text-sm text-slate-700 space-y-3 mb-8 bg-slate-50 p-5 rounded-xl border border-slate-100"></div>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('confirmModal').classList.add('hidden')" class="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">กลับไปแก้ไข</button>
-                <button onclick="submitJudgmentFinal()" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg">ยืนยันและบันทึก</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
-        // ************************************************
-        // CONFIGURATION - นำ URL จาก Apps Script มาใส่ตรงนี้
-        // ************************************************
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4-ppfPivJhOc5cg9eqXGoVFnCGf-4zncBm-RID_OHgEv0R0QkdsJpXr4Dhk032PF91g/exec'; 
-        // ************************************************
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxZWxwGAZAwgePIDUCW1LJzD5rnR-1aDUZOOol29psNrSWNpPLuCoM24x7abOsZgeX3uw/exec';
 
-        let currentUser = null;
-        let currentActivity = null;
-        let currentSubActivity = null; // Store sub activity
-        let currentParticipants = []; // Store fetched participants
+        const STATE = {
+            activeMenu: 'settings',
+            orientation: 'landscape',
+            frontBg: '',
+            backBg: '',
+            activeSide: 'front',
+            elements: [],
+            selectedElementId: null,
+            startCardNumber: '001',
+            tempCardNumbers: {}, 
 
-        function togglePassword(id) {
-            const input = document.getElementById(id);
-            input.type = input.type === "password" ? "text" : "password";
+            students: [],
+            loading: false,
+            printMode: 'individual',
+            searchQuery: '',
+            selectedClass: '',
+            selectedRoom: '',
+            selectedStudents: [],
+            printSide: 'both',
+            previewIndex: 0,
+
+            editingStudent: null,
+            editorSettings: { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0 }
+        };
+
+        function escapeHTML(str) {
+            if(!str) return '';
+            return String(str).replace(/[&<>'"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match]));
         }
 
-        function switchView(viewId) {
-            ['loginView', 'registerView', 'dashboardView', 'judgingView'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-            document.getElementById(viewId).classList.remove('hidden');
-            window.scrollTo(0,0);
-        }
-
-        function showLoading(show) {
-            document.getElementById('globalLoader').style.display = show ? 'flex' : 'none';
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const content = document.getElementById('toastContent');
-            const icon = document.getElementById('toastIcon');
-            const msg = document.getElementById('toastMessage');
-
-            content.className = `bg-white border-l-4 p-4 rounded-lg shadow-xl flex items-center border ${type === 'success' ? 'border-l-green-500 text-green-700 border-slate-100' : 'border-l-red-500 text-red-700 border-slate-100'}`;
-            icon.innerHTML = type === 'success' ? '<i class="fas fa-check-circle text-green-500"></i>' : '<i class="fas fa-exclamation-circle text-red-500"></i>';
-            msg.innerText = message;
-
-            toast.classList.remove('translate-x-full');
-            setTimeout(() => toast.classList.add('translate-x-full'), 3000);
-        }
-
-        async function callBackend(data) {
-            if (SCRIPT_URL === 'INSERT_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE' || SCRIPT_URL === '') {
-                alert('กรุณาใส่ Apps Script URL ในโค้ด HTML บรรทัดที่ 440 ก่อนใช้งาน');
-                return null;
-            }
-            showLoading(true);
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    redirect: 'follow',
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(data)
-                });
-                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-                const text = await response.text();
-                try {
-                    const result = JSON.parse(text);
-                    showLoading(false);
-                    return result;
-                } catch (e) {
-                    console.error("Non-JSON response:", text);
-                    throw new Error("Server Error: Script returned invalid format.");
+        // ==========================================
+        // อัปเดตล่าสุด: บีบอัดด้วยความละเอียดสูง (2000px HD) เพื่อความคมชัด
+        // ==========================================
+        function compressImage(base64Str, maxWidth = 2000, maxHeight = 2000, quality = 0.95) {
+            return new Promise((resolve) => {
+                if (!base64Str || !base64Str.startsWith('data:image')) {
+                    resolve(base64Str);
+                    return;
                 }
-            } catch (error) {
-                showLoading(false);
-                console.error(error);
-                showToast('การเชื่อมต่อล้มเหลว: ' + error.message, 'error');
-                return null;
-            }
+                const img = new Image();
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => resolve(base64Str);
+                img.src = base64Str;
+            });
         }
 
-        // --- Auth & Register ---
-        async function handleLogin() {
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            if(!user || !pass) return showToast('กรุณากรอกข้อมูลให้ครบ', 'error');
-            const result = await callBackend({ action: 'login', username: user, password: pass });
-            if (result && result.status === 'success') {
-                currentUser = result.user;
-                if (document.getElementById('rememberMe').checked) localStorage.setItem('comp_user', JSON.stringify({u: user, p: pass}));
-                setupDashboard();
-            } else {
-                showToast(result?.message || 'เข้าสู่ระบบล้มเหลว', 'error');
-            }
-        }
+        function fetchStudents() {
+            STATE.loading = true;
+            renderStudentList();
 
-        function checkRemembered() {
-            const saved = localStorage.getItem('comp_user');
-            if(saved) {
-                const creds = JSON.parse(saved);
-                document.getElementById('username').value = creds.u;
-                document.getElementById('password').value = creds.p;
-            }
-        }
-        checkRemembered();
-
-        async function handleRegister() {
-            const p1 = document.getElementById('regPass').value;
-            const p2 = document.getElementById('regPassConfirm').value;
-            if(p1 !== p2) return showToast('รหัสผ่านไม่ตรงกัน', 'error');
-            const data = {
-                action: 'register',
-                name: document.getElementById('regName').value,
-                username: document.getElementById('regUser').value,
-                password: p1,
-                role: 'judge',
-                group: document.getElementById('regGroup').value
+            const callbackName = 'gasCallback_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            window[callbackName] = (data) => {
+                if (data && data.success) {
+                    STATE.students = data.data;
+                    populateFilters();
+                    renderStudentList();
+                } else {
+                    alert("ไม่สามารถโหลดข้อมูลนักเรียนได้");
+                }
+                cleanup();
             };
-            const result = await callBackend(data);
-            if (result && result.status === 'success') {
-                showToast(result.message);
-                document.getElementById('registerForm').reset();
-                switchView('loginView');
-            } else {
-                showToast(result?.message || 'ลงทะเบียนไม่สำเร็จ', 'error');
-            }
+
+            const cleanup = () => {
+                STATE.loading = false;
+                renderStudentList();
+                delete window[callbackName];
+                const scriptEl = document.getElementById(callbackName);
+                if (scriptEl) scriptEl.remove();
+            };
+
+            try {
+                const script = document.createElement('script');
+                script.id = callbackName;
+                script.src = `${GAS_URL}?action=getStudents&callback=${callbackName}`;
+                script.onerror = () => cleanup();
+                document.body.appendChild(script);
+            } catch (error) { cleanup(); }
         }
 
-        function handleLogout() {
-            currentUser = null;
-            localStorage.removeItem('comp_user');
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            switchView('loginView');
-        }
-
-        // --- Dashboard Logic ---
-        function setupDashboard() {
-            switchView('dashboardView');
-            document.getElementById('welcomeName').innerText = `คุณ${currentUser.name}`;
-            document.getElementById('welcomeGroup').innerText = currentUser.group;
-            
-            // Show/Hide filter based on role/group
-            if (currentUser.role === 'admin' || currentUser.group === 'All') {
-                document.getElementById('groupFilterContainer').classList.remove('hidden');
-                loadGroupOptions();
-            } else {
-                document.getElementById('groupFilterContainer').classList.add('hidden');
-            }
-
-            if (currentUser.role === 'admin') {
-                document.getElementById('adminPanel').classList.remove('hidden');
-                document.getElementById('judgePanel').classList.remove('hidden');
-                loadPendingUsers();
-            } else {
-                document.getElementById('adminPanel').classList.add('hidden');
-                document.getElementById('judgePanel').classList.remove('hidden');
-            }
-            loadStats();
-            loadJudgingItems();
-        }
-
-        async function loadGroupOptions() {
-            const result = await callBackend({ action: 'getGroups' });
-            if (result && result.status === 'success' && result.data) {
-                const select = document.getElementById('groupFilter');
-                // Keep the first option (All) and clear others
-                select.innerHTML = '<option value="All">ทั้งหมด</option>';
-                result.data.forEach(group => {
-                    const option = document.createElement('option');
-                    option.value = group;
-                    option.text = group;
-                    select.appendChild(option);
-                });
-            }
-        }
-
-        async function loadPendingUsers() {
-            const result = await callBackend({ action: 'getPendingUsers' });
-            const tbody = document.getElementById('approvalTable');
-            tbody.innerHTML = '';
-            if (result && result.data && result.data.length > 0) {
-                result.data.forEach(user => {
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition-colors";
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-slate-800 font-medium">${user.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${user.username}</td>
-                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">${user.group}</span></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button onclick="approveUser('${user.username}')" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold transition-all"><i class="fas fa-check mr-1"></i> อนุมัติ</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 italic">ไม่มีรายการรออนุมัติ</td></tr>';
-            }
-        }
-
-        async function approveUser(username) {
-            const result = await callBackend({ action: 'approveUser', username: username });
-            if(result.status === 'success') {
-                showToast('อนุมัติเรียบร้อย');
-                loadPendingUsers();
-            }
-        }
-
-        async function loadStats() {
-            const result = await callBackend({ action: 'getDashboardStats', group: currentUser.group });
-            if(result.status === 'success') {
-                document.getElementById('statTotal').innerText = result.total;
-                document.getElementById('statJudged').innerText = result.judged;
-            }
-        }
-
-        async function loadJudgingItems() {
-            // Determine group to fetch: filter value if available/allowed, else user's group
-            let groupToFetch = currentUser.group;
-            const filterVal = document.getElementById('groupFilter').value;
-            
-            if (currentUser.role === 'admin' || currentUser.group === 'All') {
-                groupToFetch = filterVal;
-            }
-
-            const result = await callBackend({ action: 'getItemsToJudge', group: groupToFetch });
-            const tbody = document.getElementById('itemsTable');
-            tbody.innerHTML = '';
-            if (result && result.data) {
-                result.data.forEach(item => {
-                    const isDone = item.status === 'Judged';
-                    // Added display for registered count
-                    const registeredDisplay = item.registeredCount ? `<span class="text-xs text-slate-500 ml-2 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"><i class="fas fa-users mr-1"></i>${item.registeredCount} โรงเรียน</span>` : '';
+        function fetchTemplate() {
+            const callbackName = 'gasCallbackTemplate_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            window[callbackName] = (data) => {
+                if (data && data.success && data.data) {
+                    const { orientation, elements, frontBg, backBg, startCardNumber } = data.data;
+                    if (orientation) STATE.orientation = orientation;
+                    if (elements) STATE.elements = elements;
+                    if (typeof frontBg !== 'undefined') STATE.frontBg = frontBg || '';
+                    if (typeof backBg !== 'undefined') STATE.backBg = backBg || '';
+                    if (startCardNumber !== undefined) STATE.startCardNumber = String(startCardNumber);
                     
-                    const tr = document.createElement('tr');
-                    tr.className = isDone ? 'bg-green-50/50 hover:bg-green-50 transition-colors' : 'hover:bg-slate-50 transition-colors';
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-slate-800">
-                            <div class="flex items-center">
-                                <span>${item.name}</span>
-                                ${registeredDisplay}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">${item.group}</span>
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${isDone ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-800 border border-yellow-200'}">
-                                ${isDone ? '<i class="fas fa-check-circle mr-1 mt-0.5"></i> ตัดสินแล้ว' : '<i class="fas fa-clock mr-1 mt-0.5"></i> รอตัดสิน'}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right text-sm font-medium">
-                            <button onclick="openJudging('${item.name}')" class="w-full sm:w-auto text-white ${isDone ? 'bg-slate-400 hover:bg-slate-500' : 'bg-blue-900 hover:bg-blue-800'} px-4 py-2 rounded-lg shadow-sm text-sm font-bold transition-colors">
-                                ${isDone ? '<i class="fas fa-edit mr-1"></i> แก้ไข' : '<i class="fas fa-gavel mr-1"></i> ให้คะแนน'}
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                    updateOrientationCSS();
+                    updateBgUI();
+                    renderDesignCanvas();
+                }
+                cleanup();
+            };
+
+            const cleanup = () => {
+                delete window[callbackName];
+                const scriptEl = document.getElementById(callbackName);
+                if (scriptEl) scriptEl.remove();
+            };
+
+            try {
+                const script = document.createElement('script');
+                script.id = callbackName;
+                script.src = `${GAS_URL}?action=getTemplate&callback=${callbackName}`;
+                script.onerror = () => cleanup();
+                document.body.appendChild(script);
+            } catch (error) { cleanup(); }
+        }
+
+        window.onload = () => {
+            fetchStudents();
+            fetchTemplate();
+            updateOrientationCSS();
+        };
+
+        function formatThaiDate(dateInput) {
+            if (!dateInput) return '';
+            let dateStr = String(dateInput).trim();
+            
+            let day, month, year;
+
+            // 1. ตรวจสอบว่าพิมพ์ชื่อเดือนไทยมาหรือไม่
+            const thaiMonths = {
+                'มกราคม': 1, 'ม.ค.': 1, 'jan': 1, 'january': 1,
+                'กุมภาพันธ์': 2, 'ก.พ.': 2, 'feb': 2, 'february': 2,
+                'มีนาคม': 3, 'มี.ค.': 3, 'mar': 3, 'march': 3,
+                'เมษายน': 4, 'เม.ย.': 4, 'apr': 4, 'april': 4,
+                'พฤษภาคม': 5, 'พ.ค.': 5, 'may': 5,
+                'มิถุนายน': 6, 'มิ.ย.': 6, 'jun': 6, 'june': 6,
+                'กรกฎาคม': 7, 'ก.ค.': 7, 'jul': 7, 'july': 7,
+                'สิงหาคม': 8, 'ส.ค.': 8, 'aug': 8, 'august': 8,
+                'กันยายน': 9, 'ก.ย.': 9, 'sep': 9, 'september': 9,
+                'ตุลาคม': 10, 'ต.ค.': 10, 'oct': 10, 'october': 10,
+                'พฤศจิกายน': 11, 'พ.ย.': 11, 'nov': 11, 'november': 11,
+                'ธันวาคม': 12, 'ธ.ค.': 12, 'dec': 12, 'december': 12
+            };
+
+            let normalizedStr = dateStr.toLowerCase();
+            let foundThaiMonth = false;
+            
+            for (const [mName, mNum] of Object.entries(thaiMonths)) {
+                if (normalizedStr.includes(mName)) {
+                    month = mNum;
+                    foundThaiMonth = true;
+                    // ดึงตัวเลขทั้งหมดจากข้อความ
+                    const numbers = normalizedStr.match(/\d+/g);
+                    if (numbers && numbers.length >= 2) {
+                        day = parseInt(numbers[0], 10);
+                        year = parseInt(numbers[numbers.length - 1], 10);
+                        // หากใส่ปีมาย่อๆ เช่น "66" หรือ "33" ให้บวก 2500 เข้าไป
+                        if (year < 100) year += 2500; 
+                    }
+                    break;
+                }
+            }
+
+            // 2. หากไม่ได้พิมพ์เป็นชื่อเดือน ให้ใช้ Regex แกะรูปแบบตัวเลข
+            if (!foundThaiMonth) {
+                // รองรับทุกเครื่องหมายคั่น: "/", "-", หรือช่องว่าง
+                const isoRegex = /(\d{4})[\/\-\s](\d{1,2})[\/\-\s](\d{1,2})/;
+                const thRegex = /(\d{1,2})[\/\-\s](\d{1,2})[\/\-\s](\d{4})/;
+
+                if (isoRegex.test(dateStr)) {
+                    const match = dateStr.match(isoRegex);
+                    year = parseInt(match[1], 10); 
+                    month = parseInt(match[2], 10); 
+                    day = parseInt(match[3], 10);
+                } else if (thRegex.test(dateStr)) {
+                    const match = dateStr.match(thRegex);
+                    day = parseInt(match[1], 10); 
+                    month = parseInt(match[2], 10); 
+                    year = parseInt(match[3], 10);
+                    
+                    // ป้องกันสลับที่วัน/เดือน (MM/DD/YYYY)
+                    if (month > 12 && day <= 12) {
+                        let temp = day; 
+                        day = month; 
+                        month = temp;
+                    }
+                } else {
+                    // หากแพทเทิร์นพัง ให้ใช้ระบบ Date ของ Browser พยายามแกะแทน
+                    const d = new Date(dateInput);
+                    if (!isNaN(d.getTime())) {
+                        day = d.getDate(); 
+                        month = d.getMonth() + 1; 
+                        year = d.getFullYear();
+                    } else {
+                        return dateStr; // ยอมแพ้ คืนค่าเดิม
+                    }
+                }
+            }
+
+            // ตรวจสอบความสมบูรณ์
+            if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+                return dateStr;
+            }
+
+            // 3. แปลง ค.ศ. ให้เป็น พ.ศ. เสมอ (ถ้าปีต่ำกว่า 2400)
+            if (year < 2400) {
+                year += 543;
+            }
+
+            // 4. จัดรูปแบบสุดท้ายให้เป็น DD/MM/YYYY
+            return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+        }
+
+        function getIssueDate() {
+            const today = new Date();
+            return `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear() + 543}`;
+        }
+
+        function getExpiryDate(stdClass) {
+            const today = new Date();
+            let years = 3;
+            if (stdClass === 'ม.5') years = 2;
+            if (stdClass === 'ม.6') years = 1;
+            today.setFullYear(today.getFullYear() + years);
+            return `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear() + 543}`;
+        }
+
+        function switchMenu(menu) {
+            STATE.activeMenu = menu;
+            document.getElementById('view-settings').classList.toggle('view-hidden', menu !== 'settings');
+            document.getElementById('view-print').classList.toggle('view-hidden', menu !== 'print');
+            
+            document.getElementById('btn-nav-settings').className = `flex items-center gap-2 px-4 py-2 rounded-md transition ${menu === 'settings' ? 'bg-blue-800 shadow-inner' : 'hover:bg-blue-600'}`;
+            document.getElementById('btn-nav-print').className = `flex items-center gap-2 px-4 py-2 rounded-md transition ${menu === 'print' ? 'bg-blue-800 shadow-inner' : 'hover:bg-blue-600'}`;
+            
+            if(menu === 'settings') renderDesignCanvas();
+            if(menu === 'print') renderPreview();
+        }
+
+        function setActiveSide(side) {
+            STATE.activeSide = side;
+            STATE.selectedElementId = null;
+            document.getElementById('btn-side-front').className = `flex-1 py-2 text-sm rounded font-bold transition ${side === 'front' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`;
+            document.getElementById('btn-side-back').className = `flex-1 py-2 text-sm rounded font-bold transition ${side === 'back' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`;
+            document.getElementById('lbl-active-side').innerText = side === 'front' ? 'หน้า' : 'หลัง';
+            document.getElementById('lbl-canvas-side').innerText = side === 'front' ? 'หน้า' : 'หลัง';
+            
+            updateBgUI();
+            renderDesignCanvas();
+            renderPropertiesPanel();
+        }
+
+        function setOrientation(ori) {
+            STATE.orientation = ori;
+            document.getElementById('btn-ori-landscape').className = `flex-1 py-2 text-sm border rounded transition ${ori === 'landscape' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100'}`;
+            document.getElementById('btn-ori-portrait').className = `flex-1 py-2 text-sm border rounded transition ${ori === 'portrait' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100'}`;
+            updateOrientationCSS();
+            renderDesignCanvas();
+        }
+
+        function updateOrientationCSS() {
+            const w = STATE.orientation === 'landscape' ? 856 : 540;
+            const h = STATE.orientation === 'landscape' ? 540 : 856;
+            
+            const canvasWrapper = document.getElementById('design-canvas-wrapper');
+            canvasWrapper.style.width = (w * 0.65) + 'px';
+            canvasWrapper.style.height = (h * 0.65) + 'px';
+            
+            const canvas = document.getElementById('design-canvas');
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+
+            document.documentElement.style.setProperty('--page-width', STATE.orientation === 'landscape' ? '85.6mm' : '54mm');
+            document.documentElement.style.setProperty('--page-height', STATE.orientation === 'landscape' ? '54mm' : '85.6mm');
+            document.documentElement.style.setProperty('--content-width', w + 'px');
+            document.documentElement.style.setProperty('--content-height', h + 'px');
+        }
+
+        function handleBgUpload(e, side) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    if (side === 'front') STATE.frontBg = event.target.result;
+                    else STATE.backBg = event.target.result;
+                    updateBgUI();
+                    renderDesignCanvas();
+                };
+                reader.readAsDataURL(file);
             }
         }
 
-        // --- Judging Logic with Participant Fetching ---
-
-        async function openJudging(activityName) {
-            currentActivity = activityName;
+        function handleBgLink(val, side) {
+            let cleanVal = val.trim();
             
-            document.getElementById('judgingActivityName').innerText = activityName;
+            if (cleanVal.includes('drive.google.com')) {
+                alert('⚠️ ระบบของ Google Drive ปิดกั้นการนำรูปภาพมาแสดงผลโดยตรงครับ\n\nวิธีแก้ที่ใช้งานได้ 100%:\n1. ให้ดาวน์โหลดรูปภาพจาก Drive ลงมาที่เครื่องของคุณก่อน\n2. จากนั้นกดปุ่ม "อัปโหลดไฟล์" หรือ นำไปฝากที่เว็บ postimages.org แล้วนำลิงก์มาวางครับ');
+                return; 
+            }
             
-            document.getElementById('scoreForm').reset();
-            
-            // Clear previous displays
-            document.querySelectorAll('[id$="_students"]').forEach(el => {
-                el.classList.add('hidden');
-                el.querySelector('.content').innerHTML = '';
-            });
-
-            switchView('judgingView');
-            
-            // Fetch participants
-            const result = await callBackend({ action: 'getParticipants', activityName: activityName });
-            if (result && result.status === 'success') {
-                currentParticipants = result.data;
-                populateSchoolSelects();
+            if (side === 'front') {
+                STATE.frontBg = cleanVal;
             } else {
-                showToast('ไม่พบข้อมูลผู้เข้าร่วมสำหรับกิจกรรมนี้', 'error');
-                currentParticipants = [];
-                populateSchoolSelects();
+                STATE.backBg = cleanVal;
+            }
+            updateBgUI();
+            renderDesignCanvas();
+        }
+
+        function removeBg(side) {
+            if (side === 'front') {
+                STATE.frontBg = '';
+                const frontInput = document.getElementById('bg-link-front');
+                if (frontInput) frontInput.value = '';
+            } else {
+                STATE.backBg = '';
+                const backInput = document.getElementById('bg-link-back');
+                if (backInput) backInput.value = '';
+            }
+            updateBgUI();
+            renderDesignCanvas();
+        }
+
+        function updateBgUI() {
+            const hasFront = !!STATE.frontBg;
+            const hasBack = !!STATE.backBg;
+            document.getElementById('btn-remove-bg-front').classList.toggle('view-hidden', !hasFront);
+            document.getElementById('btn-remove-bg-back').classList.toggle('view-hidden', !hasBack);
+            
+            const canvas = document.getElementById('design-canvas');
+            const bgUrl = STATE.activeSide === 'front' ? STATE.frontBg : STATE.backBg;
+            canvas.style.backgroundImage = bgUrl ? `url('${bgUrl}')` : 'none';
+
+            const frontInput = document.getElementById('bg-link-front');
+            const backInput = document.getElementById('bg-link-back');
+            if (frontInput) frontInput.value = (STATE.frontBg && !STATE.frontBg.startsWith('data:')) ? STATE.frontBg : '';
+            if (backInput) backInput.value = (STATE.backBg && !STATE.backBg.startsWith('data:')) ? STATE.backBg : '';
+        }
+
+        function addElement(field, type, customSrc = null) {
+            const newEl = {
+                id: Date.now().toString(), field, type, side: STATE.activeSide,
+                x: 20, y: 20,
+                width: type === 'image' || type === 'qr' || type === 'signature' ? 100 : 150,
+                height: type === 'image' || type === 'qr' ? 120 : (type === 'signature' ? 50 : 30),
+                fontSize: 20, color: '#000000', textAlign: 'left',
+                borderWidth: 0, borderColor: '#000000', borderRadius: 0,
+                src: customSrc
+            };
+            STATE.elements.push(newEl);
+            STATE.selectedElementId = newEl.id;
+            renderDesignCanvas();
+            renderPropertiesPanel();
+        }
+
+        function addSignature() {
+            const input = document.getElementById('sigUrlInput');
+            if(input.value) {
+                addElement('signature', 'signature', input.value.trim());
+                input.value = '';
             }
         }
 
-        function populateSchoolSelects() {
-            const selects = document.querySelectorAll('.school-select');
-            selects.forEach(select => {
-                select.innerHTML = '<option value="">เลือกโรงเรียน...</option>';
-                currentParticipants.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.school;
-                    option.text = p.school;
-                    select.appendChild(option);
-                });
+        function updateElement(id, key, value) {
+            const el = STATE.elements.find(e => e.id === id);
+            if(el) {
+                el[key] = value;
+                renderDesignCanvas();
+                if(key === 'cardNumber') STATE.startCardNumber = value;
+            }
+        }
+
+        function removeElement(id) {
+            STATE.elements = STATE.elements.filter(e => e.id !== id);
+            STATE.selectedElementId = null;
+            renderDesignCanvas();
+            renderPropertiesPanel();
+        }
+
+        function clearSelection(e) {
+            if(e.target.id === 'design-canvas' || e.target.id === 'design-canvas-wrapper' || e.target.id === 'canvas-wrapper-outer') {
+                STATE.selectedElementId = null;
+                renderDesignCanvas();
+                renderPropertiesPanel();
+            }
+        }
+
+        let isDragging = false, isResizing = false;
+        let dragElId = null, resizeDir = null;
+        let startX, startY, initialX, initialY, initialW, initialH;
+
+        document.addEventListener('mousemove', (e) => {
+            if(!isDragging && !isResizing) return;
+            const el = STATE.elements.find(e => e.id === dragElId);
+            if(!el) return;
+
+            const scale = 0.65;
+            const dx = (e.clientX - startX) / scale;
+            const dy = (e.clientY - startY) / scale;
+
+            if(isDragging) {
+                el.x = Math.round(initialX + dx);
+                el.y = Math.round(initialY + dy);
+            } else if(isResizing) {
+                let newX = initialX, newY = initialY, newW = initialW, newH = initialH;
+                if(resizeDir.includes('e')) newW = initialW + dx;
+                if(resizeDir.includes('s')) newH = initialH + dy;
+                if(resizeDir.includes('w')) { newW = initialW - dx; newX = initialX + dx; }
+                if(resizeDir.includes('n')) { newH = initialH - dy; newY = initialY + dy; }
+
+                if(newW < 20) { if(resizeDir.includes('w')) newX = initialX + initialW - 20; newW = 20; }
+                if(newH < 20) { if(resizeDir.includes('n')) newY = initialY + initialH - 20; newH = 20; }
+
+                el.x = Math.round(newX); el.y = Math.round(newY);
+                el.width = Math.round(newW); el.height = Math.round(newH);
+            }
+
+            const domEl = document.getElementById('el-' + el.id);
+            if(domEl) {
+                domEl.style.left = el.x + 'px';
+                domEl.style.top = el.y + 'px';
+                domEl.style.width = el.width + 'px';
+                domEl.style.height = el.height + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if(isDragging || isResizing) {
+                isDragging = false;
+                isResizing = false;
+                dragElId = null;
+                renderPropertiesPanel();
+            }
+        });
+
+        function handleMouseDown(e, id) {
+            e.stopPropagation();
+            e.preventDefault();
+            STATE.selectedElementId = id;
+            renderDesignCanvas();
+            renderPropertiesPanel();
+
+            const el = STATE.elements.find(e => e.id === id);
+            if(el) {
+                isDragging = true;
+                dragElId = id;
+                startX = e.clientX; startY = e.clientY;
+                initialX = el.x; initialY = el.y;
+            }
+        }
+
+        function handleResizeDown(e, id, dir) {
+            e.stopPropagation();
+            e.preventDefault();
+            STATE.selectedElementId = id;
+            
+            const el = STATE.elements.find(e => e.id === id);
+            if(el) {
+                isResizing = true;
+                resizeDir = dir;
+                dragElId = id;
+                startX = e.clientX; startY = e.clientY;
+                initialX = el.x; initialY = el.y;
+                initialW = el.width; initialH = el.height;
+            }
+        }
+
+        function updateTempCardNumbers() {
+            if (!STATE.tempCardNumbers) STATE.tempCardNumbers = {};
+            
+            let maxNum = 0;
+            STATE.students.forEach(s => {
+                if (s.cardNumber && !isNaN(parseInt(s.cardNumber, 10))) {
+                    maxNum = Math.max(maxNum, parseInt(s.cardNumber, 10));
+                }
+            });
+
+            const padLen = String(STATE.startCardNumber || '001').length;
+            let nextNum = Math.max(maxNum > 0 ? maxNum + 1 : 1, parseInt(STATE.startCardNumber || '1', 10));
+
+            STATE.selectedStudents.forEach(id => {
+                const student = STATE.students.find(s => s.id === id); 
+                if (student && student.cardNumber) {
+                    STATE.tempCardNumbers[id] = student.cardNumber;
+                } else if (!STATE.tempCardNumbers[id]) {
+                    STATE.tempCardNumbers[id] = String(nextNum).padStart(padLen, '0');
+                    nextNum++;
+                }
             });
         }
 
-        // --- New Helper: Format Names ---
-        function formatStudentNames(text) {
-            if(!text) return "-";
-            let formatted = String(text); // Ensure it's a string
-            
-            // Expand titles
-            formatted = formatted.replace(/ด\.ช\./g, 'เด็กชาย');
-            formatted = formatted.replace(/ด\.ญ\./g, 'เด็กหญิง');
-            formatted = formatted.replace(/น\.ส\./g, 'นางสาว');
-            formatted = formatted.replace(/อ\./g, 'อาจารย์');
-            
-            // Optional: Handle multiple names (if comma or newline separated)
-            // Splitting and re-joining with <br> or styling
-            // Assuming comma separation is common
-            if(formatted.includes(',') || formatted.includes('\n')) {
-               const names = formatted.split(/,|\n/);
-               return names.map(n => n.trim()).filter(n => n).join('<br>');
-            }
+        function generateElementContent(el, student = null) {
+            let content = '';
+            if(student) {
+                if(el.type === 'text') {
+                    if(el.field === 'id') content = escapeHTML(student.id);
+                    if(el.field === 'name') content = escapeHTML(student.name);
+                    if(el.field === 'classRoom') content = `${escapeHTML(student.class || '')}/${escapeHTML(student.room || '')}`;
+                    if(el.field === 'address') content = escapeHTML(student.address);
+                    if(el.field === 'issueDate') content = getIssueDate();
+                    if(el.field === 'expiryDate') content = getExpiryDate(student.class);
+                    if(el.field === 'birthdate') content = formatThaiDate(student.birthdate);
+                    if(el.field === 'nationalId') content = escapeHTML(student.nationalId);
+                    if(el.field === 'cardNumber') {
+                        content = STATE.tempCardNumbers[student.id] || '';
+                    }
+                } else if(el.type === 'image') {
+                    if(student.photo) {
+                        let sZoom = 1, sPanX = 0, sPanY = 0, sBrightness = 100, sWhitening = 0, sFlipX = false, sTemp = 0;
+                        if (student.editorSettings) {
+                            try {
+                                const settings = (typeof student.editorSettings === 'string') ? JSON.parse(student.editorSettings) : student.editorSettings;
+                                sZoom = parseFloat(settings.zoom ?? 1);
+                                sPanX = parseFloat(settings.panX ?? 0);
+                                sPanY = parseFloat(settings.panY ?? 0);
+                                sBrightness = parseFloat(settings.brightness ?? 100);
+                                sWhitening = parseFloat(settings.whitening ?? 0);
+                                sFlipX = settings.flipX === true || settings.flipX === 'true';
+                                sTemp = parseFloat(settings.temperature ?? 0);
+                            } catch(e) {}
+                        }
 
-            return formatted;
+                        const b = sBrightness + (sWhitening * 0.35);
+                        const c = 100 + (sWhitening * 0.15);
+                        let sat = 100 + (sWhitening * 0.1);
+                        if (sTemp < 0) sat -= Math.abs(sTemp) * 0.5;
+
+                        const filterStr = `brightness(${b}%) contrast(${c}%) saturate(${sat}%)`;
+                        
+                        const canvasWidth = 300;
+                        const canvasHeight = 400;
+                        const scaleW = el.width / canvasWidth;
+                        const scaleH = el.height / canvasHeight;
+                        const adjustedPanX = sPanX * scaleW;
+                        const adjustedPanY = sPanY * scaleH;
+
+                        const scaleX = sZoom * (sFlipX ? -1 : 1);
+                        const transformStr = `translate(${adjustedPanX}px, ${adjustedPanY}px) scale(${scaleX}, ${sZoom})`;
+                        
+                        const imgStyle = `width:100%; height:100%; object-fit:cover; object-position:center; transform:${transformStr}; filter:${filterStr}; transform-origin: center center;`;
+
+                        let overlayHtml = '';
+                        if (sTemp !== 0) {
+                            const tintColor = sTemp < 0 ? '#0044ff' : '#ff6600';
+                            const opacity = Math.abs(sTemp) / 180;
+                            overlayHtml += `<div style="position:absolute; inset:0; background-color:${tintColor}; opacity:${opacity}; mix-blend-mode:color; pointer-events:none; z-index:2;"></div>`;
+                            if (sTemp < 0) {
+                                const screenOpacity = Math.abs(sTemp) / 400;
+                                overlayHtml += `<div style="position:absolute; inset:0; background-color:#ccddff; opacity:${screenOpacity}; mix-blend-mode:screen; pointer-events:none; z-index:3;"></div>`;
+                            }
+                        }
+
+                        const containerStyle = `position:relative; width:100%; height:100%; overflow:hidden; border:${el.borderWidth||0}px solid ${el.borderColor||'#000'}; border-radius:${el.borderRadius||0}px; background-color:transparent; display:flex; align-items:center; justify-content:center;`;
+                        content = `<div style="${containerStyle}"><img src="${student.photo}" style="${imgStyle}" alt="student photo" />${overlayHtml}</div>`;
+                        
+                    } else {
+                        const styleFallback = `width:100%; height:100%; object-fit:cover; border:${el.borderWidth||0}px solid ${el.borderColor||'#000'}; border-radius:${el.borderRadius||0}px; background-color:transparent;`;
+                        content = `<div style="${styleFallback}" class="flex flex-col items-center justify-center text-[10px] text-gray-500 border border-dashed border-gray-400 bg-white/50"><i class="fas fa-user-circle fa-2x mb-1"></i>ไม่มีรูป</div>`;
+                    }
+                } else if(el.type === 'qr') {
+                    content = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${student.id||''}" style="width:100%; height:100%;" alt="qr" />`;
+                } else if(el.type === 'signature') {
+                    content = `<img src="${el.src}" style="width:100%; height:100%; object-fit:contain;" alt="sig" />`;
+                }
+            } else {
+                if(el.type === 'text') {
+                    content = el.field === 'cardNumber' ? '[เลขที่บัตร]' : `[${el.field}]`;
+                } else if(el.type === 'image') {
+                    const style = `width:100%; height:100%; display:flex; align-items:center; justify-content:center; border:${el.borderWidth||0}px solid ${el.borderColor||'#000'}; border-radius:${el.borderRadius||0}px; background-color:rgba(255,255,255,0.4);`;
+                    content = `<div style="${style}"><i class="fas fa-image fa-2x text-gray-500"></i></div>`;
+                } else if(el.type === 'qr') {
+                    content = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;" class="border border-dashed border-purple-500 bg-purple-50/50"><i class="fas fa-qrcode fa-2x text-purple-500"></i></div>`;
+                } else if(el.type === 'signature') {
+                    content = `<img src="${el.src}" style="width:100%; height:100%; object-fit:contain;" draggable="false" alt="sig" />`;
+                }
+            }
+            return content;
         }
 
-        function updateStudents(rankId) {
-            const select = document.getElementById(rankId);
-            const display = document.getElementById(rankId + '_students');
-            const content = display.querySelector('.content');
-            
-            const selectedSchool = select.value;
-            if (!selectedSchool) {
-                display.classList.add('hidden');
+        function renderDesignCanvas() {
+            const container = document.getElementById('design-elements-container');
+            container.innerHTML = '';
+
+            STATE.elements.filter(el => (el.side || 'front') === STATE.activeSide).forEach(el => {
+                const isSelected = STATE.selectedElementId === el.id;
+                const elDiv = document.createElement('div');
+                elDiv.id = 'el-' + el.id;
+                
+                let justifyContent = 'center';
+                if(el.type === 'text') {
+                    if(el.textAlign === 'center') justifyContent = 'center';
+                    else if(el.textAlign === 'right') justifyContent = 'flex-end';
+                    else justifyContent = 'flex-start';
+                }
+
+                const style = `
+                    position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.width}px; height: ${el.height}px;
+                    border: ${isSelected ? '2px dashed #3b82f6' : 'none'}; cursor: move; color: ${el.color}; font-size: ${el.fontSize}px;
+                    background-color: ${el.type === 'text' ? 'rgba(255,255,255,0.4)' : 'transparent'};
+                    overflow: visible; z-index: ${isSelected ? 10 : 1}; line-height: 1.2;
+                `;
+                elDiv.style.cssText = style;
+                elDiv.onmousedown = (e) => handleMouseDown(e, el.id);
+
+                const innerStyle = `width: 100%; height: 100%; overflow: hidden; display: flex; align-items: ${el.field === 'address' ? 'flex-start' : 'center'}; justify-content: ${justifyContent}; text-align: ${el.textAlign||'left'}; white-space: ${el.field === 'address' ? 'pre-wrap' : 'nowrap'};`;
+                
+                let handlesHTML = '';
+                if(isSelected) {
+                    const handleStyle = "position:absolute; width:10px; height:10px; background-color:#fff; border:2px solid #3b82f6; border-radius:50%; z-index:20;";
+                    handlesHTML = `
+                        <div onmousedown="handleResizeDown(event, '${el.id}', 'nw')" style="${handleStyle} top:-5px; left:-5px; cursor:nwse-resize;"></div>
+                        <div onmousedown="handleResizeDown(event, '${el.id}', 'ne')" style="${handleStyle} top:-5px; right:-5px; cursor:nesw-resize;"></div>
+                        <div onmousedown="handleResizeDown(event, '${el.id}', 'sw')" style="${handleStyle} bottom:-5px; left:-5px; cursor:nesw-resize;"></div>
+                        <div onmousedown="handleResizeDown(event, '${el.id}', 'se')" style="${handleStyle} bottom:-5px; right:-5px; cursor:nwse-resize;"></div>
+                    `;
+                }
+
+                elDiv.innerHTML = `<div style="${innerStyle}">${generateElementContent(el)}</div>${handlesHTML}`;
+                container.appendChild(elDiv);
+            });
+        }
+
+        function renderPropertiesPanel() {
+            const panel = document.getElementById('properties-panel');
+            if(!STATE.selectedElementId) {
+                panel.innerHTML = '';
                 return;
             }
 
-            const participant = currentParticipants.find(p => p.school === selectedSchool);
-            if (participant) {
-                // Apply beautiful formatting
-                const studentHtml = formatStudentNames(participant.students);
-                const teacherHtml = formatStudentNames(participant.teacher);
-                
-                content.innerHTML = `
-                    <div class="mb-2">
-                        <span class="font-bold text-yellow-700 block text-xs uppercase tracking-wide mb-1">ผู้เข้าร่วม:</span>
-                        <div class="text-slate-700 leading-relaxed pl-2 border-l-2 border-yellow-200">${studentHtml}</div>
-                    </div>
-                    <div>
-                        <span class="font-bold text-blue-800 block text-xs uppercase tracking-wide mb-1">ครูผู้ฝึกสอน:</span>
-                        <div class="text-slate-700 leading-relaxed pl-2 border-l-2 border-blue-200">${teacherHtml}</div>
+            const el = STATE.elements.find(e => e.id === STATE.selectedElementId);
+            if(!el) return;
+
+            let html = `
+                <div class="mt-2 p-4 bg-yellow-50 rounded-lg border border-yellow-200 shrink-0 mb-4 shadow-sm relative">
+                    <h3 class="text-sm font-bold text-yellow-800 mb-3 flex justify-between items-center border-b border-yellow-200 pb-2">
+                        ปรับแต่งคุณสมบัติ
+                        <button onclick="removeElement('${el.id}')" class="text-red-500 hover:bg-red-100 p-1 rounded transition" title="ลบออบเจ็กต์"><i class="fas fa-times"></i></button>
+                    </h3>
+                    <div class="space-y-3 text-sm">
+            `;
+
+            if(el.field === 'cardNumber') {
+                html += `
+                    <div class="bg-white p-2 rounded border mb-2">
+                        <label class="text-xs font-bold text-gray-700 block mb-1">ตั้งค่าเลขเริ่มต้น (เติม 0 ด้านหน้าได้)</label>
+                        <input type="text" value="${STATE.startCardNumber}" oninput="updateStartCardNumber(this.value)" class="w-full border p-1.5 rounded focus:ring-1 focus:ring-yellow-400 outline-none font-mono" />
                     </div>
                 `;
-                display.classList.remove('hidden');
             }
-        }
 
-        function closeJudging() {
-            currentActivity = null;
-            switchView('dashboardView');
-        }
-
-        function preSubmitJudgment() {
-            const winnerSchool = document.getElementById('winner').value;
-            if(!winnerSchool) return showToast('กรุณาเลือกโรงเรียนที่ได้รับรางวัลชนะเลิศ', 'error');
-
-            const content = `
-                <div class="flex justify-between border-b pb-2 border-slate-200">
-                    <span class="font-bold text-slate-500">กิจกรรม:</span>
-                    <div class="text-right">
-                        <div class="font-bold text-blue-900">${currentActivity}</div>
-                    </div>
+            html += `
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-xs text-gray-600 block mb-1">ตำแหน่ง X</label><input type="number" value="${el.x}" oninput="updateElement('${el.id}', 'x', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
+                    <div><label class="text-xs text-gray-600 block mb-1">ตำแหน่ง Y</label><input type="number" value="${el.y}" oninput="updateElement('${el.id}', 'y', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
                 </div>
-                <div class="flex justify-between py-2 border-b border-slate-200">
-                    <span class="font-bold text-slate-500">ชนะเลิศ:</span>
-                    <span class="font-bold text-yellow-600 text-right"><i class="fas fa-trophy mr-1"></i>${document.getElementById('winner').value}</span>
-                </div>
-                <div class="flex justify-between pt-2">
-                    <span class="text-slate-500">ผู้ตัดสิน:</span>
-                    <span class="text-slate-800 text-right">${currentUser.name}</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-xs text-gray-600 block mb-1">ความกว้าง</label><input type="number" value="${el.width}" oninput="updateElement('${el.id}', 'width', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
+                    <div><label class="text-xs text-gray-600 block mb-1">ความสูง</label><input type="number" value="${el.height}" oninput="updateElement('${el.id}', 'height', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
                 </div>
             `;
-            document.getElementById('confirmContent').innerHTML = content;
-            document.getElementById('confirmModal').classList.remove('hidden');
+
+            if(el.type === 'text') {
+                html += `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs text-gray-600 block mb-1">ขนาดอักษร</label><input type="number" value="${el.fontSize}" oninput="updateElement('${el.id}', 'fontSize', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
+                        <div><label class="text-xs text-gray-600 block mb-1">สีข้อความ</label><div class="flex items-center gap-2"><input type="color" value="${el.color}" oninput="updateElement('${el.id}', 'color', this.value)" class="w-8 h-8 rounded cursor-pointer border-0 p-0" /><span class="text-xs uppercase text-gray-500 font-mono">${el.color}</span></div></div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-600 block mb-1">จัดแนว</label>
+                        <div class="flex gap-1 bg-white p-1 rounded border">
+                            <button onclick="updateElement('${el.id}', 'textAlign', 'left')" class="flex-1 py-1 rounded flex justify-center transition ${el.textAlign==='left'||!el.textAlign ? 'bg-blue-100 text-blue-700 shadow-sm' : 'hover:bg-gray-50 text-gray-500'}"><i class="fas fa-align-left"></i></button>
+                            <button onclick="updateElement('${el.id}', 'textAlign', 'center')" class="flex-1 py-1 rounded flex justify-center transition ${el.textAlign==='center' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'hover:bg-gray-50 text-gray-500'}"><i class="fas fa-align-center"></i></button>
+                            <button onclick="updateElement('${el.id}', 'textAlign', 'right')" class="flex-1 py-1 rounded flex justify-center transition ${el.textAlign==='right' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'hover:bg-gray-50 text-gray-500'}"><i class="fas fa-align-right"></i></button>
+                        </div>
+                    </div>
+                `;
+            } else if(el.type === 'image') {
+                html += `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs text-gray-600 block mb-1">ขอบหนา</label><input type="number" value="${el.borderWidth||0}" oninput="updateElement('${el.id}', 'borderWidth', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
+                        <div><label class="text-xs text-gray-600 block mb-1">มุมมน</label><input type="number" value="${el.borderRadius||0}" oninput="updateElement('${el.id}', 'borderRadius', parseInt(this.value))" class="w-full border p-1.5 rounded outline-none" /></div>
+                    </div>
+                    <div><label class="text-xs text-gray-600 block mb-1">สีขอบ</label><div class="flex items-center gap-2"><input type="color" value="${el.borderColor||'#000000'}" oninput="updateElement('${el.id}', 'borderColor', this.value)" class="w-8 h-8 rounded cursor-pointer border-0 p-0" /><span class="text-xs uppercase text-gray-500 font-mono">${el.borderColor||'#000000'}</span></div></div>
+                `;
+            }
+
+            html += `</div></div>`;
+            panel.innerHTML = html;
         }
 
-        async function submitJudgmentFinal() {
-            document.getElementById('confirmModal').classList.add('hidden');
+        function updateStartCardNumber(val) {
+            STATE.startCardNumber = val.replace(/[^0-9]/g, '');
+            updateTempCardNumbers();
+            renderPreview();
+        }
+
+        async function saveTemplateSettings() {
+            const btn = document.getElementById('btn-save-template');
+            const icon = document.getElementById('icon-save-template');
+            const text = document.getElementById('text-save-template');
             
-            // Helper to get school
-            const getSchool = (id) => {
-                const school = document.getElementById(id).value;
-                return school || "";
-            };
+            btn.disabled = true;
+            btn.classList.add('bg-gray-400');
+            icon.className = 'fas fa-sync fa-spin';
+            text.innerText = 'กำลังอัปโหลดเทมเพลต...';
 
-            // Helper to get formatted student names
-            const getStudent = (id) => {
-                const school = document.getElementById(id).value;
-                if (!school) return "";
-                const part = currentParticipants.find(p => p.school === school);
-                // Convert back <br> to comma or just use formatted text without html
-                // Actually for saving, we might want raw or simple text. Let's use simple formatting.
-                if (!part) return "";
-                let rawNames = String(part.students);
-                rawNames = rawNames.replace(/ด\.ช\./g, 'เด็กชาย').replace(/ด\.ญ\./g, 'เด็กหญิง').replace(/น\.ส\./g, 'นางสาว').replace(/อ\./g, 'อาจารย์');
-                return rawNames;
-            };
+            try {
+                let frontBgToSave = STATE.frontBg;
+                let backBgToSave = STATE.backBg;
 
-            // Helper to get teacher name (NEW)
-            const getTeacher = (id) => {
-                const school = document.getElementById(id).value;
-                if (!school) return "";
-                const part = currentParticipants.find(p => p.school === school);
-                if (!part) return "";
-                // Assuming "just one teacher" means we take the string as is, or split if comma separated and take first?
-                // The prompt said: "หากมีชื่อนักเรียนหลายคนให้บันทึกชื่อครูผู้ฝึกสอนแค่คนเดียว"
-                // This likely means record the teacher field associated with the group.
-                let rawTeacher = String(part.teacher);
-                rawTeacher = rawTeacher.replace(/ด\.ช\./g, 'เด็กชาย').replace(/ด\.ญ\./g, 'เด็กหญิง').replace(/น\.ส\./g, 'นางสาว').replace(/อ\./g, 'อาจารย์');
-                return rawTeacher; 
-            };
+                // 🛑 แก้ไข: ปรับลดความกว้างเป็น 1000px คุณภาพ 80% (สอดคล้องกับขนาดบัตรจริง 856x540)
+                // เพื่อแก้ไขปัญหาเบราว์เซอร์ตัดการเชื่อมต่อ (Failed to fetch) จากไฟล์ที่มีขนาดใหญ่เกินไป
+                if (frontBgToSave && frontBgToSave.startsWith('data:image')) {
+                    frontBgToSave = await compressImage(frontBgToSave, 1000, 1000, 0.8);
+                }
+                if (backBgToSave && backBgToSave.startsWith('data:image')) {
+                    backBgToSave = await compressImage(backBgToSave, 1000, 1000, 0.8);
+                }
 
-            const data = {
-                action: 'saveJudgment',
-                judgeName: currentUser.name,
-                activityName: currentActivity,
+                const templateData = { 
+                    orientation: STATE.orientation, 
+                    elements: STATE.elements, 
+                    frontBg: frontBgToSave, 
+                    backBg: backBgToSave, 
+                    startCardNumber: STATE.startCardNumber 
+                }; 
                 
-                winnerSchool: getSchool('winner'),
-                winnerStudent: getStudent('winner'),
-                winnerTeacher: getTeacher('winner'),
-                winnerScore: document.getElementById('winnerScore').value,
-                winnerMedal: document.getElementById('winnerMedal').value,
-                
-                runner1School: getSchool('runner1'),
-                runner1Student: getStudent('runner1'),
-                runner1Teacher: getTeacher('runner1'),
-                runner1Score: document.getElementById('runner1Score').value,
-                runner1Medal: document.getElementById('runner1Medal').value,
-                
-                runner2School: getSchool('runner2'),
-                runner2Student: getStudent('runner2'),
-                runner2Teacher: getTeacher('runner2'),
-                runner2Score: document.getElementById('runner2Score').value,
-                runner2Medal: document.getElementById('runner2Medal').value,
-                
-                honorableSchool: getSchool('honorable'),
-                honorableStudent: getStudent('honorable'),
-                honorableTeacher: getTeacher('honorable'),
-                honorableScore: document.getElementById('honorableScore').value,
-                honorableMedal: document.getElementById('honorableMedal').value,
-            };
+                const payload = {
+                    action: 'saveTemplate',
+                    templateData: JSON.stringify(templateData)
+                };
 
-            const result = await callBackend(data);
-            if (result && result.status === 'success') {
-                showToast('บันทึกผลการแข่งขันเรียบร้อย');
-                closeJudging();
-                loadStats();
-                loadJudgingItems();
-            } else {
-                showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+                const response = await fetch(GAS_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload), 
+                    mode: 'no-cors' 
+                });
+                
+                alert('บันทึกข้อมูลเทมเพลตและพื้นหลังลงระบบเรียบร้อยแล้ว!');
+                setTimeout(() => {
+                    fetchTemplate();
+                }, 2000);
+
+            } catch(e) { 
+                console.error("Save Template Error:", e);
+                alert('เกิดข้อผิดพลาดในการส่งข้อมูลไปที่เซิร์ฟเวอร์ กรุณาตรวจสอบว่า GAS_URL อัปเดตล่าสุดแล้ว\n\nรายละเอียด: ' + e.message); 
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('bg-gray-400');
+                icon.className = 'fas fa-save';
+                text.innerText = 'บันทึกเทมเพลต';
             }
         }
+
+        function setPrintMode(mode) {
+            STATE.printMode = mode;
+            document.getElementById('btn-mode-indiv').className = `flex-1 py-1.5 text-sm rounded font-bold transition ${mode === 'individual' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`;
+            document.getElementById('btn-mode-group').className = `flex-1 py-1.5 text-sm rounded font-bold transition ${mode === 'group' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`;
+            
+            document.getElementById('filter-indiv').classList.toggle('view-hidden', mode !== 'individual');
+            document.getElementById('filter-group').classList.toggle('view-hidden', mode !== 'group');
+            
+            STATE.searchQuery = '';
+            document.getElementById('search-query').value = '';
+            STATE.selectedClass = '';
+            document.getElementById('select-class').value = '';
+            STATE.selectedRoom = '';
+            document.getElementById('select-room').value = '';
+
+            renderStudentList();
+        }
+
+        function populateFilters() {
+            const classes = [...new Set(STATE.students.map(s => s.class))].filter(Boolean).sort();
+            const rooms = [...new Set(STATE.students.map(s => s.room))].filter(Boolean).sort();
+            
+            const selClass = document.getElementById('select-class');
+            selClass.innerHTML = '<option value="">- เลือกระดับชั้น -</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            const selRoom = document.getElementById('select-room');
+            selRoom.innerHTML = '<option value="">- ห้อง -</option>' + rooms.map(r => `<option value="${r}">/${r}</option>`).join('');
+        }
+
+        function getFilteredStudents() {
+            if (STATE.printMode === 'individual') {
+                if (!STATE.searchQuery || STATE.searchQuery.trim() === '') return []; 
+                return STATE.students.filter(s => s.id.includes(STATE.searchQuery) || s.name.includes(STATE.searchQuery));
+            } else {
+                if (!STATE.selectedClass && !STATE.selectedRoom) return []; 
+                return STATE.students.filter(s => {
+                    return (!STATE.selectedClass || s.class === STATE.selectedClass) && 
+                           (!STATE.selectedRoom || s.room === STATE.selectedRoom);
+                });
+            }
+        }
+
+        function handleSearch() {
+            STATE.searchQuery = document.getElementById('search-query').value;
+            renderStudentList();
+        }
+
+        function handleGroupFilter() {
+            STATE.selectedClass = document.getElementById('select-class').value;
+            STATE.selectedRoom = document.getElementById('select-room').value;
+            renderStudentList();
+        }
+
+        function toggleStudentSelection(id) {
+            if(STATE.selectedStudents.includes(id)) {
+                STATE.selectedStudents = STATE.selectedStudents.filter(sId => sId !== id);
+            } else {
+                STATE.selectedStudents.push(id);
+            }
+            updateTempCardNumbers();
+            renderStudentList();
+            renderPreview();
+        }
+
+        function toggleSelectAll() {
+            const filtered = getFilteredStudents();
+            const allIds = filtered.map(s => s.id);
+            const isAllSelected = allIds.every(id => STATE.selectedStudents.includes(id));
+            if (isAllSelected) {
+                STATE.selectedStudents = STATE.selectedStudents.filter(id => !allIds.includes(id));
+            } else {
+                STATE.selectedStudents = [...new Set([...STATE.selectedStudents, ...allIds])];
+            }
+            updateTempCardNumbers();
+            renderStudentList();
+            renderPreview();
+        }
+
+        function renderStudentList() {
+            document.getElementById('loading-indicator').classList.toggle('view-hidden', !STATE.loading);
+            const listEl = document.getElementById('student-list');
+            
+            if(STATE.loading) { listEl.innerHTML = ''; return; }
+
+            const filtered = getFilteredStudents();
+            document.getElementById('lbl-found-count').innerText = `พบ ${filtered.length} รายการ`;
+            document.getElementById('lbl-selected-count').innerText = STATE.selectedStudents.length;
+            
+            const btnSelectAll = document.getElementById('btn-select-all');
+            if (filtered.length === 0) {
+                btnSelectAll.classList.add('view-hidden');
+            } else {
+                btnSelectAll.classList.remove('view-hidden');
+                btnSelectAll.innerText = (STATE.selectedStudents.length === filtered.length) ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด';
+            }
+            
+            document.getElementById('lbl-print-count').innerText = STATE.selectedStudents.length;
+            document.getElementById('btn-do-print').disabled = STATE.selectedStudents.length === 0;
+
+            if(filtered.length === 0) {
+                let emptyMsg = 'ไม่พบข้อมูลนักเรียน';
+                if (STATE.printMode === 'individual' && STATE.searchQuery.trim() === '') {
+                    emptyMsg = 'กรุณาพิมพ์ชื่อหรือรหัสประจำตัวเพื่อค้นหา';
+                } else if (STATE.printMode === 'group' && !STATE.selectedClass && !STATE.selectedRoom) {
+                    emptyMsg = 'กรุณาเลือกระดับชั้นหรือห้องเพื่อแสดงข้อมูล';
+                }
+                listEl.innerHTML = `<div class="text-center p-6 text-gray-400 text-sm"><i class="fas fa-search fa-2x mb-2 opacity-50"></i><br>${emptyMsg}</div>`;
+                return;
+            }
+
+            listEl.innerHTML = filtered.map(student => {
+                const isSelected = STATE.selectedStudents.includes(student.id);
+                const photoHtml = student.photo 
+                    ? `<div class="w-8 h-8 rounded bg-gray-200 overflow-hidden shrink-0 border"><img src="${student.photo}" class="w-full h-full object-cover" alt="profile" /></div>`
+                    : `<div class="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-400 shrink-0 border border-dashed"><i class="fas fa-user-circle"></i></div>`;
+                
+                return `
+                    <li class="p-2 hover:bg-blue-50 flex items-center gap-3 cursor-pointer transition" onclick="toggleStudentSelection('${student.id}')">
+                        <button class="text-blue-600">
+                            <i class="${isSelected ? 'fas fa-check-square' : 'far fa-square text-gray-300'} fa-lg"></i>
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-gray-900 truncate">${student.name}</div>
+                            <div class="text-xs text-gray-500">รหัส: ${student.id} • ${student.class}/${student.room}</div>
+                        </div>
+                        ${photoHtml}
+                    </li>
+                `;
+            }).join('');
+        }
+
+        function setPrintSide(side) {
+            STATE.printSide = side;
+            renderPreview();
+        }
+
+        function changePreviewPage(delta) {
+            STATE.previewIndex += delta;
+            renderPreview();
+        }
+
+        function buildCardHTML(student, side) {
+            const bgUrl = side === 'front' ? STATE.frontBg : STATE.backBg;
+            const w = STATE.orientation === 'landscape' ? 856 : 540;
+            const h = STATE.orientation === 'landscape' ? 540 : 856;
+            
+            let html = `<div class="relative overflow-hidden bg-white shadow-sm shrink-0 pvc-content" style="width:${w}px; height:${h}px; background-image:url('${bgUrl}'); background-size:cover; background-position:center; border:1px solid #e5e7eb;">`;
+            
+            STATE.elements.filter(el => (el.side || 'front') === side).forEach(el => {
+                let justifyContent = 'center';
+                if(el.type === 'text') {
+                    if(el.textAlign === 'center') justifyContent = 'center';
+                    else if(el.textAlign === 'right') justifyContent = 'flex-end';
+                    else justifyContent = 'flex-start';
+                }
+                const style = `position:absolute; left:${el.x}px; top:${el.y}px; width:${el.width}px; height:${el.height}px; color:${el.color}; font-size:${el.fontSize}px; font-family:'Prompt',sans-serif; overflow:visible; z-index:1; line-height:1.2;`;
+                const innerStyle = `width:100%; height:100%; overflow:hidden; display:flex; align-items:${el.field==='address'?'flex-start':'center'}; justify-content:${justifyContent}; text-align:${el.textAlign||'left'}; white-space:${el.field==='address'?'pre-wrap':'nowrap'};`;
+                
+                html += `<div style="${style}"><div style="${innerStyle}">${generateElementContent(el, student)}</div></div>`;
+            });
+
+            html += `</div>`;
+            return html;
+        }
+
+        function renderPreview() {
+            if(STATE.activeMenu !== 'print') return;
+            
+            updateTempCardNumbers();
+
+            const previewList = STATE.students.filter(s => STATE.selectedStudents.includes(s.id));
+            
+            document.getElementById('preview-empty-state').classList.toggle('view-hidden', previewList.length > 0);
+            document.getElementById('preview-pagination').classList.toggle('view-hidden', previewList.length === 0);
+            const holder = document.getElementById('preview-card-holder');
+            holder.classList.toggle('view-hidden', previewList.length === 0);
+
+            if(previewList.length === 0) { holder.innerHTML = ''; return; }
+
+            const safeIndex = Math.max(0, Math.min(STATE.previewIndex, previewList.length - 1));
+            STATE.previewIndex = safeIndex; 
+            const student = previewList[safeIndex];
+
+            document.getElementById('lbl-preview-page').innerText = `คนที่ ${safeIndex + 1} / ${previewList.length}`;
+            document.getElementById('btn-prev-page').disabled = safeIndex <= 0;
+            document.getElementById('btn-next-page').disabled = safeIndex >= previewList.length - 1;
+
+            const cw = STATE.orientation === 'landscape' ? 856 : 540;
+            const ch = STATE.orientation === 'landscape' ? 540 : 856;
+
+            let cardsHtml = '';
+            if(STATE.printSide === 'both' || STATE.printSide === 'front') {
+                cardsHtml += `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">ด้านหน้า (Front)</span>
+                        <div style="transform:scale(0.45); transform-origin:top center; width:${cw*0.45}px; height:${ch*0.45}px;">
+                            ${buildCardHTML(student, 'front')}
+                        </div>
+                    </div>`;
+            }
+            if(STATE.printSide === 'both' || STATE.printSide === 'back') {
+                cardsHtml += `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">ด้านหลัง (Back)</span>
+                        <div style="transform:scale(0.45); transform-origin:top center; width:${cw*0.45}px; height:${ch*0.45}px;">
+                            ${buildCardHTML(student, 'back')}
+                        </div>
+                    </div>`;
+            }
+
+            holder.innerHTML = `
+                <div class="bg-white p-4 rounded-xl shadow-md border border-gray-300 w-full transition-all">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <div class="font-bold text-gray-800 flex items-center gap-2">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-sm">${student.id}</span>
+                            ${student.name}
+                        </div>
+                        <button onclick="openPhotoEditor('${student.id}')" class="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-md flex items-center gap-1 font-medium border border-blue-200 transition">
+                            <i class="fas fa-image"></i> ถ่าย/แก้ไขรูปภาพ
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-6 justify-center">${cardsHtml}</div>
+                </div>
+            `;
+        }
+
+        function triggerPrint() {
+            updateTempCardNumbers();
+
+            const printRoot = document.getElementById('print-root');
+            printRoot.innerHTML = '';
+            const printList = STATE.students.filter(s => STATE.selectedStudents.includes(s.id));
+            
+            const logData = [];
+
+            printList.forEach((student) => {
+                const assignedCardNumber = STATE.tempCardNumbers[student.id];
+                
+                logData.push({
+                    studentId: student.id,
+                    studentName: student.name,
+                    cardNumber: assignedCardNumber
+                });
+
+                student.cardNumber = assignedCardNumber;
+
+                if(STATE.printSide === 'both' || STATE.printSide === 'front') {
+                    printRoot.innerHTML += `<div class="pvc-page">${buildCardHTML(student, 'front')}</div>`;
+                }
+                if(STATE.printSide === 'both' || STATE.printSide === 'back') {
+                    printRoot.innerHTML += `<div class="pvc-page">${buildCardHTML(student, 'back')}</div>`;
+                }
+            });
+
+            try {
+                const payload = {
+                    action: 'logPrint',
+                    logData: JSON.stringify(logData)
+                };
+
+                fetch(GAS_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload), 
+                    mode: 'no-cors' 
+                });
+                
+            } catch (error) {
+                console.error('Error logging print history:', error);
+            }
+
+            setTimeout(() => {
+                window.print();
+                fetchStudents();
+            }, 500);
+        }
+        
+        function openPhotoEditor(studentId) {
+            STATE.editingStudent = STATE.students.find(s => s.id === studentId);
+            
+            let loadedSettings = { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0 };
+            if (STATE.editingStudent.editorSettings) {
+                try {
+                    loadedSettings = { ...loadedSettings, ...JSON.parse(STATE.editingStudent.editorSettings) };
+                } catch (e) {
+                    console.warn("Could not parse saved photo settings");
+                }
+            }
+            STATE.editorSettings = loadedSettings;
+            
+            document.getElementById('editor-student-name').innerText = STATE.editingStudent.name;
+            document.getElementById('photo-editor-modal').classList.remove('view-hidden');
+            document.getElementById('btn-flip').className = `px-3 py-2 border rounded-md flex items-center justify-center transition ${STATE.editorSettings.flipX ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`;
+
+            syncEditorUI();
+            drawEditorCanvas();
+        }
+
+        function syncEditorUI() {
+            ['zoom', 'panX', 'panY', 'brightness', 'whitening', 'temperature'].forEach(k => {
+                const inpEl = document.getElementById('inp-' + k);
+                if (inpEl) inpEl.value = STATE.editorSettings[k];
+                
+                const valEl = document.getElementById('val-' + k);
+                if (valEl) {
+                    if(k==='zoom') valEl.innerText = Math.round(STATE.editorSettings[k]*100)+'%';
+                    else if(k==='brightness') valEl.innerText = STATE.editorSettings[k]+'%';
+                    else if(k==='temperature') valEl.innerText = (STATE.editorSettings[k]>0?'+':'')+STATE.editorSettings[k];
+                    else valEl.innerText = STATE.editorSettings[k];
+                }
+            });
+        }
+
+        function applyFilterPreset(type) {
+            if (type === 'ig_clear') {
+                STATE.editorSettings.brightness = 110;
+                STATE.editorSettings.whitening = 30;
+                STATE.editorSettings.temperature = -20;
+            } else if (type === 'line_beauty') {
+                STATE.editorSettings.brightness = 115;
+                STATE.editorSettings.whitening = 40;
+                STATE.editorSettings.temperature = -10;
+            } else if (type === 'studio') {
+                STATE.editorSettings.brightness = 108;
+                STATE.editorSettings.whitening = 15;
+                STATE.editorSettings.temperature = 0;
+            } else {
+                STATE.editorSettings.brightness = 100;
+                STATE.editorSettings.whitening = 0;
+                STATE.editorSettings.temperature = 0;
+            }
+            syncEditorUI();
+            drawEditorCanvas();
+        }
+
+        function autoEnhancePhoto(btnElement) {
+            const originalText = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fas fa-sync fa-spin"></i> กำลังประมวลผล...';
+            btnElement.disabled = true;
+
+            setTimeout(() => {
+                STATE.editorSettings.zoom = 1.15;
+                STATE.editorSettings.panX = 0;
+                STATE.editorSettings.panY = 0;
+                STATE.editorSettings.brightness = 110; 
+                STATE.editorSettings.whitening = 25;   
+                STATE.editorSettings.temperature = -15;
+                
+                syncEditorUI();
+                drawEditorCanvas();
+                
+                btnElement.innerHTML = '<i class="fas fa-check"></i> ปรับหน้าใสลดเหลืองแล้ว';
+                
+                setTimeout(() => {
+                    btnElement.innerHTML = originalText;
+                    btnElement.disabled = false;
+                }, 2000);
+            }, 600);
+        }
+
+        function closePhotoEditor() {
+            STATE.editingStudent = null;
+            document.getElementById('photo-editor-modal').classList.add('view-hidden');
+        }
+
+        function handleEditorUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    STATE.editingStudent.mockPhotoObj = event.target.result;
+                    drawEditorCanvas();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updateEditorSetting(key, val) {
+            const v = parseFloat(val);
+            STATE.editorSettings[key] = v;
+            
+            const display = document.getElementById('val-' + key);
+            if(display) {
+                if(key==='zoom') display.innerText = Math.round(v*100)+'%';
+                else if(key==='brightness') display.innerText = v+'%';
+                else if(key==='temperature') display.innerText = (v>0?'+':'')+v;
+                else display.innerText = v;
+            }
+            drawEditorCanvas();
+        }
+
+        function toggleFlip() {
+            STATE.editorSettings.flipX = !STATE.editorSettings.flipX;
+            document.getElementById('btn-flip').className = `px-3 py-2 border rounded-md flex items-center justify-center transition ${STATE.editorSettings.flipX ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`;
+            drawEditorCanvas();
+        }
+
+        function drawEditorCanvas() {
+            const canvas = document.getElementById('editor-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f3f4f6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const photoSrc = STATE.editingStudent.mockPhotoObj || STATE.editingStudent.photo;
+            if (photoSrc) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.save();
+                    
+                    const b = STATE.editorSettings.brightness + (STATE.editorSettings.whitening * 0.35);
+                    const c = 100 + (STATE.editorSettings.whitening * 0.15); 
+                    
+                    let sat = 100 + (STATE.editorSettings.whitening * 0.1); 
+                    if (STATE.editorSettings.temperature < 0) {
+                        sat -= Math.abs(STATE.editorSettings.temperature) * 0.5;
+                    }
+                    
+                    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${sat}%)`;
+
+                    ctx.translate(canvas.width / 2 + STATE.editorSettings.panX, canvas.height / 2 + STATE.editorSettings.panY);
+                    ctx.scale(STATE.editorSettings.zoom * (STATE.editorSettings.flipX ? -1 : 1), STATE.editorSettings.zoom);
+                    
+                    const ratio = Math.max(canvas.width / img.width, canvas.height / img.height);
+                    const w = img.width * ratio;
+                    const h = img.height * ratio;
+                    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                    ctx.restore();
+
+                    if (STATE.editorSettings.temperature !== 0) {
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'color'; 
+                        ctx.globalAlpha = Math.abs(STATE.editorSettings.temperature) / 180; 
+                        ctx.fillStyle = STATE.editorSettings.temperature < 0 ? '#0044ff' : '#ff6600';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        if (STATE.editorSettings.temperature < 0) {
+                            ctx.globalCompositeOperation = 'screen';
+                            ctx.globalAlpha = Math.abs(STATE.editorSettings.temperature) / 400;
+                            ctx.fillStyle = '#ccddff';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        }
+                        ctx.restore();
+                    }
+                };
+                img.src = photoSrc;
+            } else {
+                ctx.fillStyle = '#9ca3af';
+                ctx.font = '14px "Prompt", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('ไม่มีรูปภาพ กรุณาอัปโหลด', canvas.width/2, canvas.height/2);
+            }
+        }
+
+        async function saveEditedPhoto() {
+            const canvas = document.getElementById('editor-canvas');
+            const btn = document.getElementById('btn-save-photo');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-sync fa-spin"></i> กำลังบันทึก...';
+            
+            let compressedPhoto = "";
+            let hasNewPhoto = false;
+
+            if (STATE.editingStudent.mockPhotoObj) {
+                hasNewPhoto = true;
+                try {
+                    compressedPhoto = await compressImage(STATE.editingStudent.mockPhotoObj, 800, 800, 0.8);
+                } catch (err) {
+                    alert("เกิดข้อผิดพลาดในการประมวลผลรูปภาพใหม่ กรุณาลองใหม่อีกครั้ง");
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    return;
+                }
+            }
+
+            const stdIndex = STATE.students.findIndex(s => s.id === STATE.editingStudent.id);
+            if(stdIndex > -1) {
+                if (hasNewPhoto && compressedPhoto) {
+                    STATE.students[stdIndex].photo = compressedPhoto;
+                }
+                STATE.students[stdIndex].editorSettings = JSON.stringify(STATE.editorSettings);
+                delete STATE.students[stdIndex].mockPhotoObj; 
+            }
+            
+            const idToSave = STATE.editingStudent.id;
+            const nameToSave = STATE.editingStudent.name;
+            const settingsToSave = JSON.stringify(STATE.editorSettings);
+            
+            closePhotoEditor();
+            renderStudentList();
+            renderPreview();
+
+            try {
+                const photoPayload = (hasNewPhoto && compressedPhoto) 
+                    ? (compressedPhoto.includes(',') ? compressedPhoto.split(',')[1] : compressedPhoto)
+                    : ""; 
+                
+                const payload = {
+                    action: 'savePhoto',
+                    id: idToSave,
+                    studentName: nameToSave,
+                    photoBase64: photoPayload,
+                    editorSettings: settingsToSave
+                };
+
+                await fetch(GAS_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload), 
+                    mode: 'no-cors' 
+                });
+                
+            } catch (error) { 
+                console.error('Error saving photo silently', error); 
+                alert('ส่งข้อมูลไม่สำเร็จ กรุณาตรวจสอบลิงก์ GAS_URL');
+            } finally {
+                if (btn) {
+                   btn.disabled = false;
+                   btn.innerHTML = originalText;
+                }
+            }
+        }
+
     </script>
 </body>
 </html>
