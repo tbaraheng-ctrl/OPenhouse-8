@@ -380,6 +380,22 @@
                         <input type="range" id="inp-temperature" min="-50" max="50" value="0" oninput="updateEditorSetting('temperature', this.value)" class="w-full h-2 bg-gradient-to-r from-blue-400 via-gray-200 to-orange-400 rounded-lg appearance-none cursor-pointer" />
                     </div>
 
+                    <div class="mb-4">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-palette text-purple-500"></i> ความอิ่มตัว (Saturation)</span>
+                            <span id="val-saturation" class="text-gray-500 font-normal">100%</span>
+                        </label>
+                        <input type="range" id="inp-saturation" min="0" max="200" value="100" oninput="updateEditorSetting('saturation', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                            <span class="flex items-center gap-1"><i class="fas fa-lightbulb text-orange-400"></i> ปรับแสงขาว (Whites)</span>
+                            <span id="val-whites" class="text-gray-500 font-normal">100%</span>
+                        </label>
+                        <input type="range" id="inp-whites" min="50" max="150" value="100" oninput="updateEditorSetting('whites', this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500" />
+                    </div>
+
                     <div class="mt-auto flex gap-3 pt-4 border-t">
                         <button onclick="closePhotoEditor()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md font-medium transition">ยกเลิก</button>
                         <button id="btn-save-photo" onclick="saveEditedPhoto()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold flex items-center justify-center gap-2 transition shadow-md"><i class="fas fa-check"></i> บันทึก</button>
@@ -417,7 +433,7 @@
             previewIndex: 0,
 
             editingStudent: null,
-            editorSettings: { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0 }
+            editorSettings: { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0, saturation: 100, whites: 100 }
         };
 
         function escapeHTML(str) {
@@ -917,7 +933,7 @@
                     }
                 } else if(el.type === 'image') {
                     if(student.photo) {
-                        let sZoom = 1, sPanX = 0, sPanY = 0, sBrightness = 100, sWhitening = 0, sFlipX = false, sTemp = 0;
+                        let sZoom = 1, sPanX = 0, sPanY = 0, sBrightness = 100, sWhitening = 0, sFlipX = false, sTemp = 0, sSaturation = 100, sWhites = 100;
                         if (student.editorSettings) {
                             try {
                                 const settings = (typeof student.editorSettings === 'string') ? JSON.parse(student.editorSettings) : student.editorSettings;
@@ -928,13 +944,22 @@
                                 sWhitening = parseFloat(settings.whitening ?? 0);
                                 sFlipX = settings.flipX === true || settings.flipX === 'true';
                                 sTemp = parseFloat(settings.temperature ?? 0);
+                                sSaturation = parseFloat(settings.saturation ?? 100);
+                                sWhites = parseFloat(settings.whites ?? 100);
                             } catch(e) {}
                         }
 
-                        const b = sBrightness + (sWhitening * 0.35);
-                        const c = 100 + (sWhitening * 0.15);
-                        let sat = 100 + (sWhitening * 0.1);
+                        let b = sBrightness + (sWhitening * 0.35);
+                        let c = 100 + (sWhitening * 0.15);
+                        let sat = sSaturation + (sWhitening * 0.1);
                         if (sTemp < 0) sat -= Math.abs(sTemp) * 0.5;
+
+                        // ปรับแสงขาว (Whites) ให้มีผลต่อความใสเคลียร์ของภาพ
+                        if (sWhites !== 100) {
+                            const whiteOffset = sWhites - 100;
+                            b += whiteOffset * 0.5;
+                            c += whiteOffset * 0.5;
+                        }
 
                         const filterStr = `brightness(${b}%) contrast(${c}%) saturate(${sat}%)`;
                         
@@ -1280,13 +1305,23 @@
                     ? `<div class="w-8 h-8 rounded bg-gray-200 overflow-hidden shrink-0 border"><img src="${student.photo}" class="w-full h-full object-cover" alt="profile" /></div>`
                     : `<div class="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-400 shrink-0 border border-dashed"><i class="fas fa-user-circle"></i></div>`;
                 
+                // ⚠️ แก้ไข: ตรวจสอบสถานะการพิมพ์จาก "เลขที่บัตร" (cardNumber) แทน
+                // หากมีเลขที่บัตร = พิมพ์แล้ว, หากไม่มีเลขที่บัตร = ยังไม่ได้พิมพ์
+                const hasPrinted = student.cardNumber && student.cardNumber.toString().trim() !== '';
+                const statusBadge = hasPrinted
+                    ? `<span class="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded shadow-sm whitespace-nowrap inline-flex items-center gap-1"><i class="fas fa-print"></i> พิมพ์แล้ว</span>`
+                    : `<span class="ml-2 px-1.5 py-0.5 bg-green-100 text-green-600 text-[10px] font-bold rounded shadow-sm whitespace-nowrap inline-flex items-center gap-1"><i class="far fa-circle"></i> ยังไม่ได้พิมพ์</span>`;
+
                 return `
                     <li class="p-2 hover:bg-blue-50 flex items-center gap-3 cursor-pointer transition" onclick="toggleStudentSelection('${student.id}')">
                         <button class="text-blue-600">
                             <i class="${isSelected ? 'fas fa-check-square' : 'far fa-square text-gray-300'} fa-lg"></i>
                         </button>
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-medium text-gray-900 truncate">${student.name}</div>
+                            <div class="text-sm font-medium text-gray-900 flex items-center">
+                                <span class="truncate">${student.name}</span>
+                                ${statusBadge}
+                            </div>
                             <div class="text-xs text-gray-500">รหัส: ${student.id} • ${student.class}/${student.room}</div>
                         </div>
                         ${photoHtml}
@@ -1409,6 +1444,9 @@
                 });
 
                 student.cardNumber = assignedCardNumber;
+                
+                // ⚠️ แทรกโค้ดตรงนี้: อัปเดตสถานะในหน้าเว็บให้เป็น "พิมพ์แล้ว" ทันที (Optimistic UI)
+                student.isPrinted = true;
 
                 if(STATE.printSide === 'both' || STATE.printSide === 'front') {
                     printRoot.innerHTML += `<div class="pvc-page">${buildCardHTML(student, 'front')}</div>`;
@@ -1435,16 +1473,19 @@
                 console.error('Error logging print history:', error);
             }
 
+            // ⚠️ แทรกโค้ดตรงนี้: สั่งให้หน้ารายชื่อรีเฟรชตัวเองเพื่อโชว์ป้าย 🔴 พิมพ์แล้ว ทันที
+            renderStudentList();
+
             setTimeout(() => {
                 window.print();
-                fetchStudents();
+                // ⚠️ เอาคำสั่ง fetchStudents() ของเดิมออกไป เพื่อป้องกันการดึงข้อมูลเก่ามาทับก่อนที่ Google Sheets จะเซฟเสร็จ
             }, 500);
         }
         
         function openPhotoEditor(studentId) {
             STATE.editingStudent = STATE.students.find(s => s.id === studentId);
             
-            let loadedSettings = { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0 };
+            let loadedSettings = { zoom: 1, panX: 0, panY: 0, brightness: 100, whitening: 0, flipX: false, temperature: 0, saturation: 100, whites: 100 };
             if (STATE.editingStudent.editorSettings) {
                 try {
                     loadedSettings = { ...loadedSettings, ...JSON.parse(STATE.editingStudent.editorSettings) };
@@ -1463,14 +1504,14 @@
         }
 
         function syncEditorUI() {
-            ['zoom', 'panX', 'panY', 'brightness', 'whitening', 'temperature'].forEach(k => {
+            ['zoom', 'panX', 'panY', 'brightness', 'whitening', 'temperature', 'saturation', 'whites'].forEach(k => {
                 const inpEl = document.getElementById('inp-' + k);
                 if (inpEl) inpEl.value = STATE.editorSettings[k];
                 
                 const valEl = document.getElementById('val-' + k);
                 if (valEl) {
                     if(k==='zoom') valEl.innerText = Math.round(STATE.editorSettings[k]*100)+'%';
-                    else if(k==='brightness') valEl.innerText = STATE.editorSettings[k]+'%';
+                    else if(k==='brightness' || k==='saturation' || k==='whites') valEl.innerText = STATE.editorSettings[k]+'%';
                     else if(k==='temperature') valEl.innerText = (STATE.editorSettings[k]>0?'+':'')+STATE.editorSettings[k];
                     else valEl.innerText = STATE.editorSettings[k];
                 }
@@ -1482,18 +1523,26 @@
                 STATE.editorSettings.brightness = 110;
                 STATE.editorSettings.whitening = 30;
                 STATE.editorSettings.temperature = -20;
+                STATE.editorSettings.saturation = 110;
+                STATE.editorSettings.whites = 105;
             } else if (type === 'line_beauty') {
                 STATE.editorSettings.brightness = 115;
                 STATE.editorSettings.whitening = 40;
                 STATE.editorSettings.temperature = -10;
+                STATE.editorSettings.saturation = 105;
+                STATE.editorSettings.whites = 110;
             } else if (type === 'studio') {
                 STATE.editorSettings.brightness = 108;
                 STATE.editorSettings.whitening = 15;
                 STATE.editorSettings.temperature = 0;
+                STATE.editorSettings.saturation = 100;
+                STATE.editorSettings.whites = 115;
             } else {
                 STATE.editorSettings.brightness = 100;
                 STATE.editorSettings.whitening = 0;
                 STATE.editorSettings.temperature = 0;
+                STATE.editorSettings.saturation = 100;
+                STATE.editorSettings.whites = 100;
             }
             syncEditorUI();
             drawEditorCanvas();
@@ -1511,6 +1560,8 @@
                 STATE.editorSettings.brightness = 110; 
                 STATE.editorSettings.whitening = 25;   
                 STATE.editorSettings.temperature = -15;
+                STATE.editorSettings.saturation = 105;
+                STATE.editorSettings.whites = 110;
                 
                 syncEditorUI();
                 drawEditorCanvas();
@@ -1548,7 +1599,7 @@
             const display = document.getElementById('val-' + key);
             if(display) {
                 if(key==='zoom') display.innerText = Math.round(v*100)+'%';
-                else if(key==='brightness') display.innerText = v+'%';
+                else if(key==='brightness' || key==='saturation' || key==='whites') display.innerText = v+'%';
                 else if(key==='temperature') display.innerText = (v>0?'+':'')+v;
                 else display.innerText = v;
             }
@@ -1574,12 +1625,25 @@
                 img.onload = () => {
                     ctx.save();
                     
-                    const b = STATE.editorSettings.brightness + (STATE.editorSettings.whitening * 0.35);
-                    const c = 100 + (STATE.editorSettings.whitening * 0.15); 
+                    const brightnessSetting = STATE.editorSettings.brightness ?? 100;
+                    const whiteningSetting = STATE.editorSettings.whitening ?? 0;
+                    const tempSetting = STATE.editorSettings.temperature ?? 0;
+                    const saturationSetting = STATE.editorSettings.saturation ?? 100;
+                    const whitesSetting = STATE.editorSettings.whites ?? 100;
+
+                    let b = brightnessSetting + (whiteningSetting * 0.35);
+                    let c = 100 + (whiteningSetting * 0.15); 
+                    let sat = saturationSetting + (whiteningSetting * 0.1); 
                     
-                    let sat = 100 + (STATE.editorSettings.whitening * 0.1); 
-                    if (STATE.editorSettings.temperature < 0) {
-                        sat -= Math.abs(STATE.editorSettings.temperature) * 0.5;
+                    if (tempSetting < 0) {
+                        sat -= Math.abs(tempSetting) * 0.5;
+                    }
+
+                    // ผสมการทำงานของสไลเดอร์ "ปรับแสงขาว"
+                    if (whitesSetting !== 100) {
+                        const whiteOffset = whitesSetting - 100;
+                        b += whiteOffset * 0.5;
+                        c += whiteOffset * 0.5;
                     }
                     
                     ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${sat}%)`;
@@ -1593,16 +1657,16 @@
                     ctx.drawImage(img, -w / 2, -h / 2, w, h);
                     ctx.restore();
 
-                    if (STATE.editorSettings.temperature !== 0) {
+                    if (tempSetting !== 0) {
                         ctx.save();
                         ctx.globalCompositeOperation = 'color'; 
-                        ctx.globalAlpha = Math.abs(STATE.editorSettings.temperature) / 180; 
-                        ctx.fillStyle = STATE.editorSettings.temperature < 0 ? '#0044ff' : '#ff6600';
+                        ctx.globalAlpha = Math.abs(tempSetting) / 180; 
+                        ctx.fillStyle = tempSetting < 0 ? '#0044ff' : '#ff6600';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
-                        if (STATE.editorSettings.temperature < 0) {
+                        if (tempSetting < 0) {
                             ctx.globalCompositeOperation = 'screen';
-                            ctx.globalAlpha = Math.abs(STATE.editorSettings.temperature) / 400;
+                            ctx.globalAlpha = Math.abs(tempSetting) / 400;
                             ctx.fillStyle = '#ccddff';
                             ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }
@@ -1689,6 +1753,52 @@
             }
         }
 
+function loadStudentDropdownWithStatus() {
+  // เรียกฟังก์ชันฝั่ง Apps Script
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        // ⚠️ สำคัญมาก: ให้เปลี่ยนคำว่า 'studentSelect' เป็น ID ของช่อง Dropdown เดิมของคุณ
+        var dropdown = document.getElementById('studentSelect'); 
+        
+        if (!dropdown) {
+          console.error("ไม่พบช่องเลือกข้อมูลนักเรียน (Dropdown) กรุณาเช็ค ID โค้ดเดิมของคุณ");
+          return;
+        }
+        
+        // ล้างข้อมูลเก่าใน Dropdown ออกก่อน (ยกเว้นตัวเลือกแรกสุด)
+        dropdown.length = 1; 
+        
+        // นำรายชื่อและสถานะใส่เข้าไปใน Dropdown
+        response.data.forEach(function(student) {
+          var option = document.createElement('option');
+          option.value = student.id;
+          
+          // แสดงผลในรูปแบบ: "รหัส - ชื่อ-นามสกุล [สถานะ]"
+          option.text = student.id + " - " + student.name + " [" + student.statusText + "]";
+          
+          // ตัวเลือกเสริมเพื่อความปลอดภัยสูงสุด: 
+          // ถ้าพิมพ์แล้ว จะเปลี่ยนสีตัวอักษรใน Dropdown เป็นสีจางๆ เพื่อให้สังเกตง่าย
+          if (student.isPrinted) {
+            option.style.color = "red";
+            // option.disabled = true; // 👈 เอาเครื่องหมาย // ออก ถ้าต้องการ "บล็อก" ไม่ให้เลือกคนพิมพ์แล้วเลย
+          } else {
+            option.style.color = "green";
+          }
+          
+          dropdown.add(option);
+        });
+        
+        console.log("อัปเดตสถานะในช่องเลือกรายชื่อนักเรียนเรียบร้อยแล้ว");
+      } else {
+        alert("โหลดรายชื่อไม่สำเร็จ: " + response.message);
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.error("ระบบเชื่อมต่อล้มเหลว: " + err);
+    })
+    .getStudentSelectionList();
+}
     </script>
 </body>
 </html>
