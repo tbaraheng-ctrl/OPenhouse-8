@@ -288,7 +288,7 @@
     <!-- ================= PRINT ROOT AREA ================= -->
     <div id="print-root"></div>
 
-   <!-- ================= MODAL: PHOTO EDITOR ================= -->
+    <!-- ================= MODAL: PHOTO EDITOR ================= -->
     <div id="photo-editor-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 view-hidden no-print">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-gray-50 border-b px-6 py-4 flex justify-between items-center shrink-0">
@@ -309,14 +309,11 @@
                     
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <i class="fas fa-file-image"></i> อัปโหลดรูปภาพใหม่ / ถ่ายภาพ
+                            <i class="fas fa-file-image"></i> อัปโหลดรูปภาพใหม่
                         </label>
                         <div class="flex gap-2">
                             <input type="file" accept="image/*" onchange="handleEditorUpload(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border rounded-md" />
-                            <button onclick="openCamera()" type="button" class="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-md hover:bg-blue-100 transition flex items-center justify-center gap-2 shrink-0">
-                                <i class="fas fa-camera"></i> ถ่ายภาพ
-                            </button>
-                            <button id="btn-flip" onclick="toggleFlip()" class="px-3 py-2 border rounded-md flex items-center justify-center transition bg-gray-50 text-gray-600 hover:bg-gray-100 shrink-0" title="กลับซ้ายขวา">
+                            <button id="btn-flip" onclick="toggleFlip()" class="px-3 py-2 border rounded-md flex items-center justify-center transition bg-gray-50 text-gray-600 hover:bg-gray-100" title="กลับซ้ายขวา">
                                 <i class="fas fa-exchange-alt"></i>
                             </button>
                         </div>
@@ -412,7 +409,6 @@
 
     <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
-        // 🛑 นำ URL ใหม่ล่าสุดที่ได้จากการสร้างโปรเจกต์ใหม่ มาวางแทนที่ลิงก์ด้านล่างนี้ 🛑
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxZWxwGAZAwgePIDUCW1LJzD5rnR-1aDUZOOol29psNrSWNpPLuCoM24x7abOsZgeX3uw/exec';
 
         const STATE = {
@@ -486,19 +482,7 @@
             const callbackName = 'gasCallback_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
             window[callbackName] = (data) => {
                 if (data && data.success) {
-                    // 🌟 เพิ่มระบบดักจับและแปลงลิงก์ Google Drive ให้แสดงรูปภาพได้ทันที 100%
-                    STATE.students = data.data.map(student => {
-                        if (student.photo && typeof student.photo === 'string' && student.photo.includes('drive.google.com')) {
-                            // สกัดเอาเฉพาะรหัสไฟล์ (File ID) ความยาว 25 ตัวอักษรขึ้นไป
-                            const matchId = student.photo.match(/[-\w]{25,}/); 
-                            if (matchId) {
-                                // แปลงร่างเป็นลิงก์ CDN ที่ทะลวงข้อจำกัดเบราว์เซอร์ได้
-                                student.photo = 'https://lh3.googleusercontent.com/d/' + matchId[0];
-                            }
-                        }
-                        return student;
-                    });
-                    
+                    STATE.students = data.data;
                     populateFilters();
                     renderStudentList();
                 } else {
@@ -1596,91 +1580,6 @@
             document.getElementById('photo-editor-modal').classList.add('view-hidden');
         }
 
-        // 🌟 ส่วนที่เพิ่มใหม่ 1: ฟังก์ชันควบคุมกล้องและการถ่ายภาพ
-        let videoStream = null;
-        function openCamera() {
-            // สร้างหน้าต่างกล้องขึ้นมาอัตโนมัติหากยังไม่มี
-            if(!document.getElementById('camera-modal')) {
-                const modalHTML = `
-                <div id="camera-modal" class="fixed inset-0 bg-black/90 z-[70] flex flex-col items-center justify-center view-hidden" style="display:none;">
-                    <div class="bg-white p-4 rounded-lg shadow-xl w-11/12 max-w-md flex flex-col items-center">
-                        <h3 class="text-lg font-bold mb-3 text-gray-800"><i class="fas fa-camera"></i> ถ่ายภาพนักเรียน</h3>
-                        <div class="w-full bg-gray-200 rounded overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner">
-                            <video id="camera-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline></video>
-                        </div>
-                        <div class="flex gap-3 mt-4 w-full">
-                            <button onclick="closeCamera()" type="button" class="flex-1 py-2 bg-gray-100 text-gray-700 rounded-md font-bold hover:bg-gray-200 transition">ยกเลิก</button>
-                            <button onclick="capturePhoto()" type="button" class="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md"><i class="fas fa-camera"></i> กดถ่ายรูป</button>
-                        </div>
-                    </div>
-                </div>`;
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-            }
-            
-            const camModal = document.getElementById('camera-modal');
-            camModal.classList.remove('view-hidden');
-            camModal.style.display = 'flex';
-            
-            const video = document.getElementById('camera-video');
-            // ขออนุญาตเปิดกล้อง (เน้นกล้องหน้า/กล้องหลัก)
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-                .then(stream => {
-                    videoStream = stream;
-                    video.srcObject = stream;
-                })
-                .catch(err => {
-                    alert("ไม่สามารถเปิดกล้องได้ครับ กรุณาตรวจสอบว่าอุปกรณ์มีกล้องและเบราว์เซอร์ได้รับอนุญาต (Permissions) แล้ว");
-                    closeCamera();
-                });
-        }
-
-        function capturePhoto() {
-            const video = document.getElementById('camera-video');
-            const canvas = document.createElement('canvas');
-            // ตั้งค่าความละเอียดภาพที่ถ่าย (แนวตั้ง)
-            canvas.width = 600; 
-            canvas.height = 800;
-            const ctx = canvas.getContext('2d');
-            
-            // กลับด้านภาพ (Mirror) ให้ตรงกับที่มองเห็นในจอ
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            
-            // ครอปภาพให้อยู่กึ่งกลางสัดส่วน 3:4 แบบอัตโนมัติ
-            const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = canvas.width / canvas.height;
-            let sx=0, sy=0, sWidth=video.videoWidth, sHeight=video.videoHeight;
-            
-            if (vRatio > cRatio) {
-                sWidth = sHeight * cRatio;
-                sx = (video.videoWidth - sWidth) / 2;
-            } else {
-                sHeight = sWidth / cRatio;
-                sy = (video.videoHeight - sHeight) / 2;
-            }
-            
-            ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-            
-            // แปลงภาพเป็น URL (Base64) คุณภาพ 85% และส่งเข้าไประบบตกแต่งภาพเดิม
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            STATE.editingStudent.mockPhotoObj = dataUrl;
-            
-            drawEditorCanvas();
-            closeCamera();
-        }
-
-        function closeCamera() {
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-            }
-            const modal = document.getElementById('camera-modal');
-            if(modal) {
-                modal.classList.add('view-hidden');
-                modal.style.display = 'none';
-            }
-        }
-
         function handleEditorUpload(e) {
             const file = e.target.files[0];
             if (file) {
@@ -1843,12 +1742,9 @@
                     mode: 'no-cors' 
                 });
                 
-                // 🌟 เพิ่มป๊อปอัปแจ้งเตือนให้ชัดเจนว่าส่งไปเซิร์ฟเวอร์แล้ว
-                alert(`✅ ส่งข้อมูลรูปภาพของ "${nameToSave}" เรียบร้อยแล้ว!\n\n(หากรอ 1-2 นาทีแล้วลิงก์ยังไม่เข้าไปที่คอลัมน์ K โปรดตรวจสอบให้แน่ใจว่าลิงก์ GAS_URL เป็นของโปรเจกต์ใหม่ครับ)`);
-                
             } catch (error) { 
                 console.error('Error saving photo silently', error); 
-                alert('❌ ส่งข้อมูลไม่สำเร็จ กรุณาตรวจสอบลิงก์ GAS_URL หรืออินเทอร์เน็ตครับ');
+                alert('ส่งข้อมูลไม่สำเร็จ กรุณาตรวจสอบลิงก์ GAS_URL');
             } finally {
                 if (btn) {
                    btn.disabled = false;
