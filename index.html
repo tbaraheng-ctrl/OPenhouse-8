@@ -445,7 +445,7 @@
 
                 <!-- ขั้นตอนที่ 2: กล้องถ่ายภาพและสไลเดอร์ปรับความสว่าง -->
                 <div id="dc-step-2" class="flex flex-col items-center view-hidden">
-                    <div class="w-full bg-gray-900 rounded-lg overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner max-w-sm mx-auto">
+                    <div class="w-full bg-transparent border border-gray-300 rounded-lg overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner max-w-sm mx-auto">
                         <video id="dc-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline></video>
                         
                         <!-- เส้นกำหนดกึ่งกลาง และกรอบใบหน้า -->
@@ -465,8 +465,9 @@
                         <input type="range" id="dc-brightness" min="50" max="150" value="100" oninput="dcUpdateBrightness(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-500">
                     </div>
 
-                    <div class="flex gap-3 mt-5 w-full max-w-sm">
+                    <div class="flex gap-2 mt-5 w-full max-w-sm">
                         <button onclick="dcCancelCamera()" type="button" class="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-md font-bold hover:bg-gray-200 transition">ยกเลิก</button>
+                        <button onclick="dcToggleCamera()" type="button" class="flex-1 py-2.5 bg-purple-100 text-purple-700 rounded-md font-bold hover:bg-purple-200 transition border border-purple-200"><i class="fas fa-sync-alt"></i> สลับกล้อง</button>
                         <button onclick="dcCaptureImage()" type="button" class="flex-1 py-2.5 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md"><i class="fas fa-camera"></i> กดถ่ายรูป</button>
                     </div>
                 </div>
@@ -1675,19 +1676,28 @@
 
         // 🌟 ส่วนที่เพิ่มใหม่ 1: ฟังก์ชันควบคุมกล้องและการถ่ายภาพ
         let videoStream = null;
+        let editorFacingMode = 'user';
+
         function openCamera() {
             // สร้างหน้าต่างกล้องขึ้นมาอัตโนมัติหากยังไม่มี
             if(!document.getElementById('camera-modal')) {
                 const modalHTML = `
-                <div id="camera-modal" class="fixed inset-0 bg-black/90 z-[70] flex flex-col items-center justify-center view-hidden" style="display:none;">
+                <div id="camera-modal" class="fixed inset-0 bg-black/80 z-[70] flex flex-col items-center justify-center view-hidden" style="display:none;">
                     <div class="bg-white p-4 rounded-lg shadow-xl w-11/12 max-w-md flex flex-col items-center">
                         <h3 class="text-lg font-bold mb-3 text-gray-800"><i class="fas fa-camera"></i> ถ่ายภาพนักเรียน</h3>
-                        <div class="w-full bg-gray-200 rounded overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner">
-                            <video id="camera-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline></video>
+                        <div class="w-full bg-gray-900 rounded overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner">
+                            <video id="camera-video" class="w-full h-full object-cover" autoplay playsinline></video>
+                            <!-- เส้นกำหนดกึ่งกลาง และกรอบใบหน้า -->
+                            <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
+                                <div class="w-full h-[1px] bg-red-500/50 absolute top-1/2"></div>
+                                <div class="h-full w-[1px] bg-red-500/50 absolute left-1/2"></div>
+                                <div class="w-[50%] h-[55%] border-2 border-dashed border-green-400 rounded-[45%] mt-[-10%] shadow-[0_0_0_999px_rgba(0,0,0,0.5)]"></div>
+                            </div>
                         </div>
-                        <div class="flex gap-3 mt-4 w-full">
+                        <div class="flex gap-2 mt-4 w-full">
                             <button onclick="closeCamera()" type="button" class="flex-1 py-2 bg-gray-100 text-gray-700 rounded-md font-bold hover:bg-gray-200 transition">ยกเลิก</button>
-                            <button onclick="capturePhoto()" type="button" class="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md"><i class="fas fa-camera"></i> กดถ่ายรูป</button>
+                            <button onclick="toggleEditorCamera()" type="button" class="flex-1 py-2 bg-purple-100 text-purple-700 rounded-md font-bold hover:bg-purple-200 transition border border-purple-200"><i class="fas fa-sync-alt"></i> สลับกล้อง</button>
+                            <button onclick="capturePhoto()" type="button" class="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md"><i class="fas fa-camera"></i> ถ่ายรูป</button>
                         </div>
                     </div>
                 </div>`;
@@ -1698,9 +1708,18 @@
             camModal.classList.remove('view-hidden');
             camModal.style.display = 'flex';
             
+            startEditorCameraFeed();
+        }
+
+        function startEditorCameraFeed() {
             const video = document.getElementById('camera-video');
+
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+
             // ขออนุญาตเปิดกล้อง (เน้นกล้องหน้า/กล้องหลัก)
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: editorFacingMode } })
                 .then(stream => {
                     videoStream = stream;
                     video.srcObject = stream;
@@ -1711,6 +1730,11 @@
                 });
         }
 
+        function toggleEditorCamera() {
+            editorFacingMode = editorFacingMode === 'user' ? 'environment' : 'user';
+            startEditorCameraFeed();
+        }
+
         function capturePhoto() {
             const video = document.getElementById('camera-video');
             const canvas = document.createElement('canvas');
@@ -1718,10 +1742,6 @@
             canvas.width = 600; 
             canvas.height = 800;
             const ctx = canvas.getContext('2d');
-            
-            // กลับด้านภาพ (Mirror) ให้ตรงกับที่มองเห็นในจอ
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
             
             // ครอปภาพให้อยู่กึ่งกลางสัดส่วน 3:4 แบบอัตโนมัติ
             const vRatio = video.videoWidth / video.videoHeight;
@@ -1736,7 +1756,15 @@
                 sy = (video.videoHeight - sHeight) / 2;
             }
             
+            ctx.save();
+            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า" เพื่อแก้ปัญหาภาพสลับซ้าย-ขวา
+            if (editorFacingMode === 'user') {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            
             ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
             
             // แปลงภาพเป็น URL (Base64) คุณภาพ 85% และส่งเข้าไประบบตกแต่งภาพเดิม
             const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
@@ -1764,6 +1792,7 @@
         let dcSelectedStudent = null;
         let dcVideoStream = null;
         let dcCurrentBrightness = 100;
+        let dcFacingMode = 'user';
 
         function openDirectCameraMenu() {
             document.getElementById('direct-camera-modal').classList.remove('view-hidden');
@@ -1816,15 +1845,30 @@
             document.getElementById('dc-bright-val').innerText = '100%';
             document.getElementById('dc-video').style.filter = `brightness(100%)`;
 
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            startDcCameraFeed();
+        }
+
+        function startDcCameraFeed() {
+            const video = document.getElementById('dc-video');
+
+            if (dcVideoStream) {
+                dcVideoStream.getTracks().forEach(track => track.stop());
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: dcFacingMode } })
                 .then(stream => {
                     dcVideoStream = stream;
-                    document.getElementById('dc-video').srcObject = stream;
+                    video.srcObject = stream;
                 })
                 .catch(err => {
                     alert("ไม่สามารถเปิดกล้องได้ครับ กรุณาอนุญาตการเข้าถึงกล้อง");
                     closeDirectCameraMenu();
                 });
+        }
+
+        function dcToggleCamera() {
+            dcFacingMode = dcFacingMode === 'user' ? 'environment' : 'user';
+            startDcCameraFeed();
         }
 
         function dcUpdateBrightness(val) {
@@ -1851,11 +1895,14 @@
             const canvas = document.getElementById('dc-canvas');
             const ctx = canvas.getContext('2d');
             
+            ctx.save();
             ctx.filter = `brightness(${dcCurrentBrightness}%)`;
             
-            ctx.save();
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
+            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า" เพื่อแก้ปัญหาภาพสลับซ้าย-ขวา
+            if (dcFacingMode === 'user') {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
             
             const vRatio = video.videoWidth / video.videoHeight;
             const cRatio = canvas.width / canvas.height;
@@ -1871,7 +1918,6 @@
             
             ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
             ctx.restore();
-            ctx.filter = 'none'; 
             
             dcStopCamera();
             document.getElementById('dc-step-2').classList.add('view-hidden');
