@@ -1714,12 +1714,27 @@
         function startEditorCameraFeed() {
             const video = document.getElementById('camera-video');
 
+            // 🌟 บังคับตั้งค่าการพลิกภาพด้วย CSS ตรงๆ ให้ชัวร์ 100%
+            if (editorFacingMode === 'user') {
+                video.style.transform = 'scaleX(-1)';
+            } else {
+                video.style.transform = 'scaleX(1)';
+            }
+
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
 
-            // ขออนุญาตเปิดกล้อง (เน้นกล้องหน้า/กล้องหลัก)
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: editorFacingMode } })
+            // 🌟 ขอความละเอียดกล้องเป็น Full HD เพื่อแก้ปัญหาภาพเบลอ
+            const constraints = { 
+                video: { 
+                    facingMode: editorFacingMode,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                } 
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
                 .then(stream => {
                     videoStream = stream;
                     video.srcObject = stream;
@@ -1738,9 +1753,10 @@
         function capturePhoto() {
             const video = document.getElementById('camera-video');
             const canvas = document.createElement('canvas');
-            // ตั้งค่าความละเอียดภาพที่ถ่าย (แนวตั้ง)
-            canvas.width = 600; 
-            canvas.height = 800;
+            
+            // 🌟 เพิ่มความละเอียด Canvas ให้สูงขึ้น 2 เท่า (1200x1600) เพื่อความคมชัดสูงสุด
+            canvas.width = 1200; 
+            canvas.height = 1600;
             const ctx = canvas.getContext('2d');
             
             // ครอปภาพให้อยู่กึ่งกลางสัดส่วน 3:4 แบบอัตโนมัติ
@@ -1757,7 +1773,7 @@
             }
             
             ctx.save();
-            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า" เพื่อแก้ปัญหาภาพสลับซ้าย-ขวา
+            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า"
             if (editorFacingMode === 'user') {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
@@ -1766,8 +1782,8 @@
             ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
             ctx.restore();
             
-            // แปลงภาพเป็น URL (Base64) คุณภาพ 85% และส่งเข้าไประบบตกแต่งภาพเดิม
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            // แปลงภาพเป็น URL (Base64) คุณภาพ 95%
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             STATE.editingStudent.mockPhotoObj = dataUrl;
             
             drawEditorCanvas();
@@ -1851,11 +1867,27 @@
         function startDcCameraFeed() {
             const video = document.getElementById('dc-video');
 
+            // 🌟 บังคับตั้งค่าการพลิกภาพด้วย CSS ตรงๆ
+            if (dcFacingMode === 'user') {
+                video.style.transform = 'scaleX(-1)';
+            } else {
+                video.style.transform = 'scaleX(1)';
+            }
+
             if (dcVideoStream) {
                 dcVideoStream.getTracks().forEach(track => track.stop());
             }
 
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: dcFacingMode } })
+            // 🌟 ขอความละเอียด Full HD กล้องด่วนเช่นกัน
+            const constraints = { 
+                video: { 
+                    facingMode: dcFacingMode,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                } 
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
                 .then(stream => {
                     dcVideoStream = stream;
                     video.srcObject = stream;
@@ -1893,12 +1925,16 @@
         function dcCaptureImage() {
             const video = document.getElementById('dc-video');
             const canvas = document.getElementById('dc-canvas');
+            
+            // 🌟 อัปเกรด Canvas ให้รองรับความคมชัดระดับ HD (1200x1600)
+            canvas.width = 1200;
+            canvas.height = 1600;
             const ctx = canvas.getContext('2d');
             
             ctx.save();
             ctx.filter = `brightness(${dcCurrentBrightness}%)`;
             
-            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า" เพื่อแก้ปัญหาภาพสลับซ้าย-ขวา
+            // 🌟 พลิกรูปกลับด้านเฉพาะตอนใช้ "กล้องหน้า" 
             if (dcFacingMode === 'user') {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
