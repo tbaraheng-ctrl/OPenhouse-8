@@ -413,7 +413,7 @@
     </div>
 
     <!-- ================= MODAL: ถ่ายภาพด่วน (Direct Camera) ================= -->
-    <div id="direct-camera-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center view-hidden no-print">
+    <div id="direct-camera-modal" class="fixed inset-0 bg-black/80 z-[80] flex items-center justify-center view-hidden no-print">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[95vh]">
             <div class="bg-blue-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
                 <h3 class="text-lg font-bold flex items-center gap-2"><i class="fas fa-camera"></i> ถ่ายภาพติดบัตรนักเรียน</h3>
@@ -445,15 +445,13 @@
 
                 <!-- ขั้นตอนที่ 2: กล้องถ่ายภาพและสไลเดอร์ปรับความสว่าง -->
                 <div id="dc-step-2" class="flex flex-col items-center view-hidden">
-                    <div class="w-full bg-transparent border border-gray-300 rounded-lg overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner max-w-sm mx-auto">
+                    <div class="w-full bg-gray-900 rounded-lg overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner max-w-sm mx-auto">
                         <video id="dc-video" class="w-full h-full object-cover" autoplay playsinline></video>
                         
                         <!-- เส้นกำหนดกึ่งกลาง และกรอบใบหน้า -->
                         <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                             <div class="w-full h-[1px] bg-red-500/50 absolute top-1/2"></div>
                             <div class="h-full w-[1px] bg-red-500/50 absolute left-1/2"></div>
-                            <div class="w-[50%] h-[55%] border-2 border-dashed border-green-400 rounded-[45%] mt-[-10%] shadow-[0_0_0_999px_rgba(0,0,0,0.5)]"></div>
-                            <div class="absolute bottom-4 text-white text-xs font-bold bg-black/60 px-2 py-1 rounded">จัดใบหน้าให้อยู่ในกรอบสีเขียว</div>
                         </div>
                     </div>
                     
@@ -1559,8 +1557,7 @@
                 fetch(GAS_URL, { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload), 
-                    mode: 'no-cors' 
+                    body: JSON.stringify(payload)
                 });
                 
             } catch (error) {
@@ -1687,11 +1684,10 @@
                         <h3 class="text-lg font-bold mb-3 text-gray-800"><i class="fas fa-camera"></i> ถ่ายภาพนักเรียน</h3>
                         <div class="w-full bg-gray-900 rounded overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner">
                             <video id="camera-video" class="w-full h-full object-cover" autoplay playsinline></video>
-                            <!-- เส้นกำหนดกึ่งกลาง และกรอบใบหน้า -->
+                            <!-- เส้นกำหนดกึ่งกลาง -->
                             <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                                 <div class="w-full h-[1px] bg-red-500/50 absolute top-1/2"></div>
                                 <div class="h-full w-[1px] bg-red-500/50 absolute left-1/2"></div>
-                                <div class="w-[50%] h-[55%] border-2 border-dashed border-green-400 rounded-[45%] mt-[-10%] shadow-[0_0_0_999px_rgba(0,0,0,0.5)]"></div>
                             </div>
                         </div>
                         <div class="flex gap-2 mt-4 w-full">
@@ -1721,17 +1717,17 @@
             if (editorFacingMode === 'user') {
                 video.style.transform = 'scaleX(-1)'; // กล้องหน้า = กระจก
             } else {
-                video.style.transform = 'none';       // กล้องหลัง = แสดงตามความจริง 100%
+                video.style.transform = 'scaleX(1)';  // กล้องหลัง = แสดงตามความจริง 100%
             }
 
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
 
-            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง ideal: 'environment' (สำหรับสมาร์ทโฟน)
+            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง 'environment' (สำหรับสมาร์ทโฟน)
             const constraints = { 
                 video: { 
-                    facingMode: editorFacingMode === 'user' ? 'user' : { ideal: 'environment' },
+                    facingMode: editorFacingMode === 'user' ? 'user' : 'environment',
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 } 
@@ -1877,17 +1873,17 @@
             if (dcFacingMode === 'user') {
                 video.style.transform = 'scaleX(-1)'; // กล้องหน้า = กระจก
             } else {
-                video.style.transform = 'none';       // กล้องหลัง = แสดงตามความจริง 100%
+                video.style.transform = 'scaleX(1)';  // กล้องหลัง = แสดงตามความจริง 100%
             }
 
             if (dcVideoStream) {
                 dcVideoStream.getTracks().forEach(track => track.stop());
             }
 
-            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง ideal: 'environment' (สำหรับสมาร์ทโฟน)
+            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง 'environment' (สำหรับสมาร์ทโฟน)
             const constraints = { 
                 video: { 
-                    facingMode: dcFacingMode === 'user' ? 'user' : { ideal: 'environment' },
+                    facingMode: dcFacingMode === 'user' ? 'user' : 'environment',
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 } 
