@@ -446,7 +446,7 @@
                 <!-- ขั้นตอนที่ 2: กล้องถ่ายภาพและสไลเดอร์ปรับความสว่าง -->
                 <div id="dc-step-2" class="flex flex-col items-center view-hidden">
                     <div class="w-full bg-transparent border border-gray-300 rounded-lg overflow-hidden aspect-[3/4] relative flex items-center justify-center shadow-inner max-w-sm mx-auto">
-                        <video id="dc-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline></video>
+                        <video id="dc-video" class="w-full h-full object-cover" autoplay playsinline></video>
                         
                         <!-- เส้นกำหนดกึ่งกลาง และกรอบใบหน้า -->
                         <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
@@ -1714,21 +1714,24 @@
         function startEditorCameraFeed() {
             const video = document.getElementById('camera-video');
 
-            // 🌟 บังคับตั้งค่าการพลิกภาพด้วย CSS ตรงๆ ให้ชัวร์ 100%
+            // 🌟 ถอด class ของ Tailwind ออกให้หมดเพื่อป้องกันการขัดแย้งบนมือถือ
+            video.classList.remove('transform', 'scale-x-[-1]');
+            
+            // 🌟 บังคับตั้งค่าการพลิกภาพด้วย CSS ตรงๆ
             if (editorFacingMode === 'user') {
-                video.style.transform = 'scaleX(-1)';
+                video.style.transform = 'scaleX(-1)'; // กล้องหน้า = กระจก
             } else {
-                video.style.transform = 'scaleX(1)';
+                video.style.transform = 'none';       // กล้องหลัง = แสดงตามความจริง 100%
             }
 
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
 
-            // 🌟 ขอความละเอียดกล้องเป็น Full HD เพื่อแก้ปัญหาภาพเบลอ
+            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง ideal: 'environment' (สำหรับสมาร์ทโฟน)
             const constraints = { 
                 video: { 
-                    facingMode: editorFacingMode,
+                    facingMode: editorFacingMode === 'user' ? 'user' : { ideal: 'environment' },
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 } 
@@ -1867,21 +1870,24 @@
         function startDcCameraFeed() {
             const video = document.getElementById('dc-video');
 
+            // 🌟 ถอด class ของ Tailwind ออกให้หมดเพื่อป้องกันการขัดแย้งบนมือถือ
+            video.classList.remove('transform', 'scale-x-[-1]');
+            
             // 🌟 บังคับตั้งค่าการพลิกภาพด้วย CSS ตรงๆ
             if (dcFacingMode === 'user') {
-                video.style.transform = 'scaleX(-1)';
+                video.style.transform = 'scaleX(-1)'; // กล้องหน้า = กระจก
             } else {
-                video.style.transform = 'scaleX(1)';
+                video.style.transform = 'none';       // กล้องหลัง = แสดงตามความจริง 100%
             }
 
             if (dcVideoStream) {
                 dcVideoStream.getTracks().forEach(track => track.stop());
             }
 
-            // 🌟 ขอความละเอียด Full HD กล้องด่วนเช่นกัน
+            // 🌟 ขอกล้องหลังโดยตรงด้วยคำสั่ง ideal: 'environment' (สำหรับสมาร์ทโฟน)
             const constraints = { 
                 video: { 
-                    facingMode: dcFacingMode,
+                    facingMode: dcFacingMode === 'user' ? 'user' : { ideal: 'environment' },
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 } 
