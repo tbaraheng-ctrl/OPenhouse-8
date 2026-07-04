@@ -89,6 +89,14 @@
             <button id="btn-nav-settings" onclick="switchMenu('settings')" class="flex items-center gap-2 px-4 py-2 rounded-md transition bg-blue-800 shadow-inner">
                 <i class="fas fa-cog"></i> ออกแบบเทมเพลต
             </button>
+            <!-- 🌟 ปุ่มใหม่: พิมพ์รายงานคนไม่มีรูป -->
+            <button onclick="printMissingPhotoReport()" class="flex items-center gap-2 px-4 py-2 rounded-md transition bg-orange-600 hover:bg-orange-500 shadow-inner border border-orange-400" title="พิมพ์รายงานนักเรียนที่ยังไม่มีรูปถ่าย (A4)">
+                <i class="fas fa-file-alt"></i> ขาดรูป
+            </button>
+            <!-- 🌟 ปุ่มใหม่: พิมพ์รายงานคนไม่ขึ้นทะเบียนทำบัตร -->
+            <button onclick="printUnregisteredReport()" class="flex items-center gap-2 px-4 py-2 rounded-md transition bg-rose-600 hover:bg-rose-500 shadow-inner border border-rose-400" title="พิมพ์รายงานนักเรียนที่ยังไม่ขึ้นทะเบียนทำบัตร (A4)">
+                <i class="fas fa-id-card-clip"></i> ไม่ขึ้นทะเบียน
+            </button>
             <button id="btn-nav-print" onclick="switchMenu('print')" class="flex items-center gap-2 px-4 py-2 rounded-md transition hover:bg-blue-600">
                 <i class="fas fa-print"></i> พิมพ์บัตร
             </button>
@@ -1571,6 +1579,226 @@
                 window.print();
                 // ⚠️ เอาคำสั่ง fetchStudents() ของเดิมออกไป เพื่อป้องกันการดึงข้อมูลเก่ามาทับก่อนที่ Google Sheets จะเซฟเสร็จ
             }, 500);
+        }
+
+        // 🌟 ส่วนที่เพิ่มใหม่: ฟังก์ชันสำหรับพิมพ์รายงานคนไม่มีรูป
+        function printMissingPhotoReport() {
+            if (!STATE.students || STATE.students.length === 0) {
+                alert("ยังไม่มีข้อมูลนักเรียน หรือกำลังโหลดข้อมูลอยู่ครับ");
+                return;
+            }
+
+            // กรองหานักเรียนที่ไม่มีรูป (photo ว่างเปล่า หรือ null)
+            const missingPhotos = STATE.students.filter(s => !s.photo || s.photo.trim() === '');
+            
+            if (missingPhotos.length === 0) {
+                alert('🎉 ยอดเยี่ยมมาก! นักเรียนทุกคนมีรูปภาพครบถ้วนแล้วครับ');
+                return;
+            }
+
+            // จัดกลุ่มตามชั้นและห้อง
+            const grouped = {};
+            missingPhotos.forEach(s => {
+                const className = s.class || 'ไม่ระบุชั้น';
+                const roomName = s.room || 'ไม่ระบุห้อง';
+                const key = `${className}/${roomName}`;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(s);
+            });
+
+            // เรียงลำดับชั้น/ห้องให้ถูกต้อง (ตามตัวอักษรและตัวเลข)
+            const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+
+            let html = `
+                <!DOCTYPE html>
+                <html lang="th">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>รายงานนักเรียนที่ยังไม่มีรูปถ่าย</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700&display=swap" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Prompt', sans-serif; padding: 30px; color: #1e293b; line-height: 1.5; background: #f8fafc; }
+                        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                        @page { size: A4 portrait; margin: 15mm; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 8px 12px; }
+                        th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
+                        h1 { text-align: center; font-size: 24px; margin-bottom: 5px; color: #0f172a; }
+                        h2 { font-size: 16px; margin-top: 20px; color: #1d4ed8; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; display: inline-block; }
+                        .text-center { text-align: center; }
+                        .print-btn { display: block; width: fit-content; margin: 0 auto 20px auto; padding: 12px 24px; background: #2563eb; color: white; text-align: center; border: none; border-radius: 6px; font-family: 'Prompt'; font-size: 16px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+                        .print-btn:hover { background: #1d4ed8; }
+                        .summary { text-align: center; margin-bottom: 30px; font-size: 14px; color: #64748b; }
+                        @media print { 
+                            body { padding: 0; background: white; }
+                            .container { padding: 0; box-shadow: none; max-width: 100%; }
+                            .print-btn { display: none; } 
+                            table { page-break-inside: auto; }
+                            tr { page-break-inside: avoid; page-break-after: auto; }
+                            thead { display: table-header-group; }
+                            h2 { page-break-after: avoid; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <button class="print-btn" onclick="window.print()">🖨️ สั่งพิมพ์รายงาน (A4)</button>
+                    <div class="container">
+                        <h1>รายงานรายชื่อนักเรียนที่ยังไม่มีรูปถ่าย</h1>
+                        <div class="summary">ข้อมูล ณ วันที่ ${new Date().toLocaleDateString('th-TH')} • จำนวนนักเรียนที่ยังไม่มีรูปทั้งหมด <strong style="color:#ef4444; font-size:16px;">${missingPhotos.length}</strong> คน</div>
+            `;
+
+            sortedKeys.forEach(key => {
+                html += `<h2>ชั้น ${key} (จำนวน ${grouped[key].length} คน)</h2>`;
+                html += `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="10%">ลำดับ</th>
+                                <th width="20%">รหัสประจำตัว</th>
+                                <th width="40%" style="text-align:left;">ชื่อ-สกุล</th>
+                                <th width="30%">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                grouped[key].forEach((student, index) => {
+                    html += `
+                        <tr>
+                            <td class="text-center">${index + 1}</td>
+                            <td class="text-center">${student.id}</td>
+                            <td>${student.name}</td>
+                            <td></td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+            });
+
+            html += `
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // เปิดรายงานในหน้าต่างใหม่
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            
+            // Focus หน้าต่างเพื่อให้ผู้ใช้เห็นทันที
+            setTimeout(() => {
+                printWindow.focus();
+            }, 250);
+        }
+
+        // 🌟 ส่วนที่เพิ่มใหม่: ฟังก์ชันสำหรับพิมพ์รายงานคนไม่ขึ้นทะเบียน (ไม่มีเลข ปชช.)
+        function printUnregisteredReport() {
+            if (!STATE.students || STATE.students.length === 0) {
+                alert("ยังไม่มีข้อมูลนักเรียน หรือกำลังโหลดข้อมูลอยู่ครับ");
+                return;
+            }
+
+            // กรองหานักเรียนที่ยังไม่ขึ้นทะเบียน (nationalId ว่างเปล่า หรือ null)
+            const unregisteredStudents = STATE.students.filter(s => !s.nationalId || s.nationalId.trim() === '');
+            
+            if (unregisteredStudents.length === 0) {
+                alert('🎉 ยอดเยี่ยมมาก! นักเรียนทุกคนในระบบมีการขึ้นทะเบียน (ระบุเลขบัตร ปชช.) ครบถ้วนแล้วครับ');
+                return;
+            }
+
+            // จัดกลุ่มตามชั้นและห้อง
+            const grouped = {};
+            unregisteredStudents.forEach(s => {
+                const className = s.class || 'ไม่ระบุชั้น';
+                const roomName = s.room || 'ไม่ระบุห้อง';
+                const key = `${className}/${roomName}`;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(s);
+            });
+
+            // เรียงลำดับชั้น/ห้องให้ถูกต้อง (ตามตัวอักษรและตัวเลข)
+            const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+
+            let html = `
+                <!DOCTYPE html>
+                <html lang="th">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>รายงานนักเรียนที่ยังไม่ขึ้นทะเบียนทำบัตร</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700&display=swap" rel="stylesheet">
+                    <style>
+                        body { font-family: 'Prompt', sans-serif; padding: 30px; color: #1e293b; line-height: 1.5; background: #f8fafc; }
+                        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                        @page { size: A4 portrait; margin: 15mm; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 8px 12px; }
+                        th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
+                        h1 { text-align: center; font-size: 24px; margin-bottom: 5px; color: #0f172a; }
+                        h2 { font-size: 16px; margin-top: 20px; color: #1d4ed8; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; display: inline-block; }
+                        .text-center { text-align: center; }
+                        .print-btn { display: block; width: fit-content; margin: 0 auto 20px auto; padding: 12px 24px; background: #2563eb; color: white; text-align: center; border: none; border-radius: 6px; font-family: 'Prompt'; font-size: 16px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+                        .print-btn:hover { background: #1d4ed8; }
+                        .summary { text-align: center; margin-bottom: 30px; font-size: 14px; color: #64748b; }
+                        @media print { 
+                            body { padding: 0; background: white; }
+                            .container { padding: 0; box-shadow: none; max-width: 100%; }
+                            .print-btn { display: none; } 
+                            table { page-break-inside: auto; }
+                            tr { page-break-inside: avoid; page-break-after: auto; }
+                            thead { display: table-header-group; }
+                            h2 { page-break-after: avoid; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <button class="print-btn" onclick="window.print()">🖨️ สั่งพิมพ์รายงาน (A4)</button>
+                    <div class="container">
+                        <h1>รายงานรายชื่อนักเรียนที่ยังไม่ขึ้นทะเบียนทำบัตร</h1>
+                        <div class="summary">ข้อมูล ณ วันที่ ${new Date().toLocaleDateString('th-TH')} • จำนวนที่ยังไม่ขึ้นทะเบียนทั้งหมด <strong style="color:#ef4444; font-size:16px;">${unregisteredStudents.length}</strong> คน</div>
+            `;
+
+            sortedKeys.forEach(key => {
+                html += `<h2>ชั้น ${key} (จำนวน ${grouped[key].length} คน)</h2>`;
+                html += `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="10%">ลำดับ</th>
+                                <th width="20%">รหัสประจำตัว</th>
+                                <th width="40%" style="text-align:left;">ชื่อ-สกุล</th>
+                                <th width="30%">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                grouped[key].forEach((student, index) => {
+                    html += `
+                        <tr>
+                            <td class="text-center">${index + 1}</td>
+                            <td class="text-center">${student.id}</td>
+                            <td>${student.name}</td>
+                            <td class="text-center" style="color: #ef4444; font-size: 12px;">ไม่มีเลขบัตร ปชช.</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+            });
+
+            html += `
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // เปิดรายงานในหน้าต่างใหม่
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            
+            // Focus หน้าต่างเพื่อให้ผู้ใช้เห็นทันที
+            setTimeout(() => {
+                printWindow.focus();
+            }, 250);
         }
         
         function openPhotoEditor(studentId) {
